@@ -36,6 +36,7 @@ var (
 	title       = flag.String("title", "API Documentation", "Title of the OpenAPI spec")
 	version     = flag.String("version", "1.0.0", "Version of the API")
 	description = flag.String("description", "API generated from server.AddHandler calls", "Description of the API")
+	servers     = flag.String("servers", "http://localhost:8080", "Comma-separated list of server URLs (e.g., 'http://localhost:8080,http://api.example.com')")
 )
 
 func main() {
@@ -102,6 +103,16 @@ func Generate(pattern string) ([]byte, error) {
 		return nil, fmt.Errorf("packages contain errors")
 	}
 
+	var serverList []*openapi3.Server
+	if *servers != "" {
+		for url := range strings.SplitSeq(*servers, ",") {
+			serverList = append(serverList, &openapi3.Server{
+				URL:         strings.TrimSpace(url),
+				Description: "Server URL",
+			})
+		}
+	}
+
 	gen := &schemaGenerator{
 		openAPISpec: &openapi3.T{
 			OpenAPI: "3.0.0",
@@ -110,7 +121,8 @@ func Generate(pattern string) ([]byte, error) {
 				Version:     *version,
 				Description: *description,
 			},
-			Paths: openapi3.NewPaths(),
+			Servers: serverList,
+			Paths:   openapi3.NewPaths(),
 			Components: &openapi3.Components{
 				Schemas: make(map[string]*openapi3.SchemaRef),
 			},

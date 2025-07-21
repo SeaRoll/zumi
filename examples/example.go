@@ -17,7 +17,7 @@ import (
 	"github.com/SeaRoll/zumi/server"
 )
 
-//go:generate go run ../server/gen "-title=Zumi API" "-version=1.0.0" "-description=Zumi API for managing books and events"
+//go:generate go run ../server/gen "-title=Zumi API" "-version=1.0.0" "-description=Zumi API for managing books and events" "-servers=http://localhost:8080,https://api.example.com"
 
 type Book struct {
 	ID          int    `db:"id" json:"id"`
