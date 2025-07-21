@@ -261,6 +261,8 @@ func ExecQuery(ctx context.Context, dbtx DBTX, query string, args ...any) error 
 	return nil
 }
 
+// DBTX is an interface that defines the methods for executing queries and transactions.
+// only supports pgx package related methods.
 type DBTX interface {
 	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
 	Query(context.Context, string, ...any) (pgx.Rows, error)

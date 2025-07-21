@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/SeaRoll/zumi/cache"
@@ -16,14 +15,22 @@ import (
 	"github.com/SeaRoll/zumi/server"
 )
 
+//go:generate go run ../server/gen "-title=Zumi API" "-version=1.0.0" "-description=Zumi API for managing books and events"
+
 type Book struct {
 	ID          int    `db:"id" json:"id"`
 	Title       string `db:"title" json:"title"`
 	Description string `db:"description" json:"description"`
 }
 
-//go:embed migrations/*.sql
-var embedMigrations embed.FS
+var (
+	//go:embed migrations/*.sql
+	embedMigrations embed.FS
+	//go:embed openapi.yaml
+	embedOpenAPI string
+	//go:embed index.html
+	embedIndexHTML string
+)
 
 func main() {
 	ctx := context.Background()
@@ -95,14 +102,42 @@ func main() {
 
 	slog.Info("received cache value", "key", "something", "value", cacheValue)
 
-	srv := server.NewServer()
+	server.AddHandler("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		type healthResponse struct {
+			Status string `json:"status"`
+		}
+		server.WriteJSON(w, http.StatusOK, healthResponse{Status: "ok"})
+	})
+
+	server.AddHandler("GET /docs", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		if _, err := w.Write([]byte(embedIndexHTML)); err != nil {
+			http.Error(w, fmt.Sprintf("failed to write index.html: %v", err), http.StatusInternalServerError)
+			return
+		}
+	})
+	server.AddHandler("GET /openapi.yaml", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/x-yaml")
+		if _, err := w.Write([]byte(embedOpenAPI)); err != nil {
+			http.Error(w, fmt.Sprintf("failed to write openapi.yaml: %v", err), http.StatusInternalServerError)
+			return
+		}
+	})
 
 	// Get all books handler
-	srv.AddHandler("GET /api/v1/books", func(w http.ResponseWriter, r *http.Request) {
+	server.AddHandler("GET /api/v1/books", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Ctx context.Context `ctx:"context"`
+		}
+		if err := server.ParseRequest(r, &req); err != nil {
+			server.WriteError(w, http.StatusBadRequest, fmt.Sprintf("failed to parse request: %v", err))
+			return
+		}
+
 		var books []Book
-		if err := db.WithTX(ctx, func(tx database.DBTX) error {
+		if err := db.WithTX(req.Ctx, func(tx database.DBTX) error {
 			var err error
-			books, err = database.SelectRows[Book](ctx, tx, "SELECT * FROM books")
+			books, err = database.SelectRows[Book](req.Ctx, tx, "SELECT * FROM books")
 			if err != nil {
 				return fmt.Errorf("failed to retrieve all books: %w", err)
 			}
@@ -112,22 +147,26 @@ func main() {
 			return
 		}
 
-		server.WriteJSON(w, books)
+		server.WriteJSON(w, http.StatusOK, books)
 	})
 
 	// Get a book by ID handler
-	srv.AddHandler("GET /api/v1/books/{id}", func(w http.ResponseWriter, r *http.Request) {
-		id := r.PathValue("id")
-		idInt, err := strconv.Atoi(id)
-		if err != nil {
-			server.WriteError(w, http.StatusBadRequest, fmt.Sprintf("invalid book ID: %v", id))
+	//
+	// This handler retrieves a book by its ID from the path parameter.
+	server.AddHandler("GET /api/v1/books/{id}", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Ctx context.Context `ctx:"context"`
+			ID  int             `path:"id"`
+		}
+		if err := server.ParseRequest(r, &req); err != nil {
+			server.WriteError(w, http.StatusBadRequest, fmt.Sprintf("failed to parse request: %v", err))
 			return
 		}
 
 		var book Book
-		if err := db.WithTX(ctx, func(tx database.DBTX) error {
+		if err := db.WithTX(req.Ctx, func(tx database.DBTX) error {
 			var err error
-			book, err = database.SelectRow[Book](ctx, tx, "SELECT * FROM books WHERE id = $1", idInt)
+			book, err = database.SelectRow[Book](req.Ctx, tx, "SELECT * FROM books WHERE id = $1", req.ID)
 			if err != nil {
 				return fmt.Errorf("failed to retrieve book: %w", err)
 			}
@@ -137,24 +176,27 @@ func main() {
 			return
 		}
 
-		server.WriteJSON(w, book)
+		server.WriteJSON(w, http.StatusOK, book)
 	})
 
 	// Add a book handler
-	srv.AddHandler("POST /api/v1/books", func(w http.ResponseWriter, r *http.Request) {
-		var book Book
-		if err := json.NewDecoder(r.Body).Decode(&book); err != nil {
-			server.WriteError(w, http.StatusBadRequest, fmt.Sprintf("failed to decode request body: %v", err))
+	server.AddHandler("POST /api/v1/books", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Ctx  context.Context `ctx:"context"`
+			Book Book            `body:"json"`
+		}
+		if err := server.ParseRequest(r, &req); err != nil {
+			server.WriteError(w, http.StatusBadRequest, fmt.Sprintf("failed to parse request: %v", err))
 			return
 		}
 
-		if err := db.WithTX(ctx, func(tx database.DBTX) error {
+		if err := db.WithTX(req.Ctx, func(tx database.DBTX) error {
 			if err := database.ExecQuery(
 				ctx,
 				tx,
 				"INSERT INTO books (title, description) VALUES ($1, $2)",
-				book.Title,
-				book.Description,
+				req.Book.Title,
+				req.Book.Description,
 			); err != nil {
 				return fmt.Errorf("failed to insert book: %w", err)
 			}
@@ -165,7 +207,7 @@ func main() {
 		}
 
 		// Publish the book event to the queue
-		bookEvent, err := json.Marshal(book)
+		bookEvent, err := json.Marshal(req.Book)
 		if err != nil {
 			server.WriteError(w, http.StatusInternalServerError, fmt.Sprintf("failed to marshal book event: %v", err))
 			return
@@ -175,13 +217,13 @@ func main() {
 			return
 		}
 
-		server.WriteJSON(w, map[string]string{"status": "book added"})
+		server.WriteJSON(w, http.StatusCreated, nil)
 	})
 
 	// Start the server
 	addr := ":8080"
 	slog.Info("Starting server", "address", addr)
-	if err := srv.Start(ctx, addr); err != nil {
+	if err := server.StartServer(ctx, addr); err != nil {
 		slog.Error("Failed to start server", "error", err)
 		return
 	}

@@ -1,0 +1,176 @@
+components:
+    schemas:
+        Book:
+            properties:
+                description:
+                    type: string
+                id:
+                    type: integer
+                title:
+                    type: string
+            required:
+                - id
+                - title
+                - description
+            type: object
+        ErrorResponse:
+            properties:
+                error:
+                    description: Error message
+                    type: string
+            type: object
+        healthResponse:
+            properties:
+                status:
+                    type: string
+            required:
+                - status
+            type: object
+info:
+    description: Zumi API for managing books and events
+    title: Zumi API
+    version: 1.0.0
+openapi: 3.0.0
+paths:
+    /api/v1/books:
+        get:
+            description: |
+                Get all books handler
+            operationId: get_api_v1_books
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                items:
+                                    $ref: '#/components/schemas/Book'
+                                type: array
+                    description: OK
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+                    description: Error response
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+                    description: Error response
+                default:
+                    description: ""
+            summary: /api/v1/books
+            tags:
+                - API
+        post:
+            description: |
+                Add a book handler
+            operationId: post_api_v1_books
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/Book'
+            responses:
+                "201":
+                    content:
+                        application/json:
+                            schema: {}
+                    description: Created
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+                    description: Error response
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+                    description: Error response
+                default:
+                    description: ""
+            summary: /api/v1/books
+            tags:
+                - API
+    /api/v1/books/{id}:
+        get:
+            description: |
+                Get a book by ID handler
+
+                This handler retrieves a book by its ID from the path parameter.
+            operationId: get_api_v1_books_id
+            parameters:
+                - in: path
+                  name: id
+                  required: true
+                  schema:
+                    type: integer
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Book'
+                    description: OK
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+                    description: Error response
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+                    description: Error response
+                default:
+                    description: ""
+            summary: /api/v1/books/{id}
+            tags:
+                - API
+    /docs:
+        get:
+            operationId: get_docs
+            responses:
+                default:
+                    description: ""
+            summary: /docs
+            tags:
+                - DOCS
+    /health:
+        get:
+            operationId: get_health
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/healthResponse'
+                    description: OK
+                default:
+                    description: ""
+            summary: /health
+            tags:
+                - HEALTH
+    /openapi.yaml:
+        get:
+            operationId: get_openapi.yaml
+            responses:
+                default:
+                    description: ""
+            summary: /openapi.yaml
+            tags:
+                - OPENAPI.YAML
+tags:
+    - description: Operations related to API
+      name: API
+    - description: Operations related to DOCS
+      name: DOCS
+    - description: Operations related to HEALTH
+      name: HEALTH
+    - description: Operations related to OPENAPI.YAML
+      name: OPENAPI.YAML

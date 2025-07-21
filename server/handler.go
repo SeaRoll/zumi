@@ -76,7 +76,8 @@ func (s *server) AddHandler(path string, handler http.HandlerFunc) {
 // This should be the last step in your handler function, since
 // it sets the Content-Type header to application/json, and can transform writer to send errors
 // if the encoding fails.
-func WriteJSON(w http.ResponseWriter, data any) {
+func WriteJSON(w http.ResponseWriter, status int, data any) {
+	w.WriteHeader(status)
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(data); err != nil {
 		WriteError(w, http.StatusInternalServerError, fmt.Sprintf("failed to write JSON response: %v", err))
