@@ -1,0 +1,66 @@
+components:
+    schemas:
+        ErrorResponse:
+            properties:
+                error:
+                    description: Error message
+                    type: string
+            type: object
+        publishResponse:
+            properties:
+                status:
+                    type: string
+            required:
+                - status
+            type: object
+info:
+    description: Zumi API for events with pubsub
+    title: Zumi Message API
+    version: 1.0.0
+openapi: 3.0.0
+paths:
+    /publish:
+        post:
+            description: |
+                Endpoint to publish messages to the channel
+            operationId: post_publish
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                content:
+                                    type: string
+                            required:
+                                - content
+                            type: object
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/publishResponse'
+                    description: OK
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+                    description: Error response
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+                    description: Error response
+                default:
+                    description: ""
+            summary: /publish
+            tags:
+                - PUBLISH
+servers:
+    - description: Server URL
+      url: http://localhost:8080
+tags:
+    - description: Operations related to PUBLISH
+      name: PUBLISH

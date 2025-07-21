@@ -17,7 +17,7 @@ import (
 	"github.com/SeaRoll/zumi/server"
 )
 
-//go:generate go run ../server/gen "-title=Zumi API" "-version=1.0.0" "-description=Zumi API for managing books and events" "-servers=http://localhost:8080,https://api.example.com"
+//go:generate go run ../../server/gen "-title=Zumi API" "-version=1.0.0" "-description=Zumi API for managing books and events" "-servers=http://localhost:8080,https://api.example.com"
 
 type Book struct {
 	ID          int    `db:"id" json:"id"`
@@ -106,6 +106,7 @@ func main() {
 
 	slog.Info("received cache value", "key", "something", "value", cacheValue)
 
+	// gen:ignore
 	server.AddHandler("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		type healthResponse struct {
 			Status string `json:"status"`
@@ -113,15 +114,20 @@ func main() {
 		server.WriteJSON(w, http.StatusOK, healthResponse{Status: "ok"})
 	})
 
+	// gen:ignore
 	server.AddHandler("GET /docs", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusOK)
 		if _, err := w.Write([]byte(embedIndexHTML)); err != nil {
 			http.Error(w, fmt.Sprintf("failed to write index.html: %v", err), http.StatusInternalServerError)
 			return
 		}
 	})
+
+	// gen:ignore
 	server.AddHandler("GET /openapi.yaml", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/x-yaml")
+		w.WriteHeader(http.StatusOK)
 		if _, err := w.Write([]byte(embedOpenAPI)); err != nil {
 			http.Error(w, fmt.Sprintf("failed to write openapi.yaml: %v", err), http.StatusInternalServerError)
 			return

@@ -2,42 +2,96 @@ package server
 
 import (
 	"context"
-	_ "embed"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 )
 
-var (
-	//go:embed banner.txt
-	banner       string
-	globalServer *server = newServer()
-)
+type MiddlewareFunc func(http.Handler) http.Handler
 
-// MiddlewareFunc defines the type for middleware functions.
-// The first middleware added is the most nested one.
-func AddMiddleware(middleware MiddlewareFunc) {
-	globalServer.addMiddleware(middleware)
+type server struct {
+	mux         *http.ServeMux
+	middlewares []MiddlewareFunc
 }
 
-// AddHandler registers a new HTTP handler for the specified path.
-// Usage: AddHandler("GET /path", handlerFunction)
-// Basically the same as http.HandleFunc but with a custom server instance.
-func AddHandler(path string, handler http.HandlerFunc) {
-	globalServer.addHandler(path, handler)
+func newServer() *server {
+	mux := http.NewServeMux()
+	return &server{mux: mux}
 }
 
-// StartServer initializes and starts the server with the given address.
-// It will return once the server is stopped or an error occurs.
-func StartServer(ctx context.Context, addr string) error {
-	// print banner
-	fmt.Println(banner)
-	slog.Info("starting server", "address", addr)
-	return globalServer.start(ctx, addr)
+// Starts a running server by the given address.
+// Stops the server when it receives ctx.Done()
+func (s *server) start(ctx context.Context, addr string) error {
+	var handler http.Handler = s.mux
+	// wrap by decorating the mux with all middlewares
+	for _, middleware := range s.middlewares {
+		handler = middleware(handler)
+	}
+
+	// finally add recovery and accesslog middlewares
+	handler = recovery(handler, slog.Default())
+	handler = accesslog(handler, slog.Default())
+
+	server := &http.Server{
+		Addr:    addr,
+		Handler: handler,
+	}
+
+	// Create a channel to listen for errors from the server
+	errChan := make(chan error, 1)
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			errChan <- err
+		}
+	}()
+
+	// Wait for either an error or the context to be done
+	select {
+	case err := <-errChan:
+		if err != nil {
+			return fmt.Errorf("server error: %w", err)
+		}
+		return nil
+	case <-ctx.Done():
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer shutdownCancel()
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			return fmt.Errorf("server shutdown error: %w", err)
+		}
+	}
+
+	return nil
 }
 
-// ClearServer resets the global server instance.
-// This is useful for testing purposes to ensure a clean state.
-func ClearServer() {
-	globalServer = newServer()
+// AddMiddleware adds a middleware function to the server.
+func (s *server) addMiddleware(middleware MiddlewareFunc) {
+	s.middlewares = append(s.middlewares, middleware)
+}
+
+// AddHandler registers a new handler for the specified path.
+func (s *server) addHandler(path string, handler http.HandlerFunc) {
+	s.mux.HandleFunc(path, handler)
+}
+
+// WriteJSON writes a JSON response to the http.ResponseWriter.
+// This should be the last step in your handler function, since
+// it sets the Content-Type header to application/json, and can transform writer to send errors
+// if the encoding fails.
+func WriteJSON(w http.ResponseWriter, status int, data any) {
+	w.WriteHeader(status)
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		WriteError(w, http.StatusInternalServerError, fmt.Sprintf("failed to write JSON response: %v", err))
+	}
+}
+
+// WriteError writes an error message to the http.ResponseWriter with the specified status code.
+// This is a utility function to handle errors in a consistent way across your handlers.
+func WriteError(w http.ResponseWriter, status int, message string) {
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(map[string]string{"error": message}); err != nil {
+		http.Error(w, fmt.Sprintf("failed to write error response: %v", err), http.StatusInternalServerError)
+	}
 }

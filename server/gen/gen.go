@@ -237,6 +237,12 @@ func (g *schemaGenerator) processAddHandler(call *ast.CallExpr, comments []*ast.
 		}
 	}
 
+	// check if the comment has `gen:ignore` directive, if so, skip this handler
+	if strings.Contains(description, "gen:ignore") {
+		log.Printf("Skipping handler for %s %s due to 'gen:ignore' directive", method, path)
+		return
+	}
+
 	reqStruct, responses := g.findRequestAndResponseTypes(handlerFunc)
 
 	tag := generateTagFromPath(path)
