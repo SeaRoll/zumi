@@ -8,8 +8,6 @@ import (
 	"time"
 )
 
-//go:generate go run github.com/SeaRoll/interfacer/cmd -struct=server -name=Server
-
 type MiddlewareFunc func(http.Handler) http.Handler
 
 type server struct {
@@ -17,14 +15,14 @@ type server struct {
 	middlewares []MiddlewareFunc
 }
 
-func NewServer() Server {
+func newServer() *server {
 	mux := http.NewServeMux()
 	return &server{mux: mux}
 }
 
 // Starts a running server by the given address.
 // Stops the server when it receives ctx.Done()
-func (s *server) Start(ctx context.Context, addr string) error {
+func (s *server) start(ctx context.Context, addr string) error {
 	var handler http.Handler = s.mux
 	// wrap by decorating the mux with all middlewares
 	for _, middleware := range s.middlewares {
@@ -63,12 +61,12 @@ func (s *server) Start(ctx context.Context, addr string) error {
 }
 
 // AddMiddleware adds a middleware function to the server.
-func (s *server) AddMiddleware(middleware MiddlewareFunc) {
+func (s *server) addMiddleware(middleware MiddlewareFunc) {
 	s.middlewares = append(s.middlewares, middleware)
 }
 
 // AddHandler registers a new handler for the specified path.
-func (s *server) AddHandler(path string, handler http.HandlerFunc) {
+func (s *server) addHandler(path string, handler http.HandlerFunc) {
 	s.mux.HandleFunc(path, handler)
 }
 

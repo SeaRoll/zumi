@@ -139,6 +139,7 @@ func (d *dbo) Disconnect(noTeardown ...bool) {
 		d.isTeardown.Store(true) // Set teardown flag to true
 	}
 	d.pool.Close()
+	slog.Info("Database connection pool closed")
 }
 
 // WithReadTX executes a function within a read-only database transaction context.

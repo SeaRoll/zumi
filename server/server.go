@@ -2,19 +2,29 @@ package server
 
 import (
 	"context"
+	_ "embed"
+	"fmt"
+	"log/slog"
 	"net/http"
 )
 
-var globalServer Server = NewServer()
+var (
+	//go:embed banner.txt
+	banner       string
+	globalServer *server = newServer()
+)
 
 func AddMiddleware(middleware MiddlewareFunc) {
-	globalServer.AddMiddleware(middleware)
+	globalServer.addMiddleware(middleware)
 }
 
 func AddHandler(path string, handler http.HandlerFunc) {
-	globalServer.AddHandler(path, handler)
+	globalServer.addHandler(path, handler)
 }
 
 func StartServer(ctx context.Context, addr string) error {
-	return globalServer.Start(ctx, addr)
+	// print banner
+	fmt.Println(banner)
+	slog.Info("starting server", "address", addr)
+	return globalServer.start(ctx, addr)
 }

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
+	"os/signal"
 	"time"
 
 	"github.com/SeaRoll/zumi/cache"
@@ -33,7 +35,8 @@ var (
 )
 
 func main() {
-	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
 
 	// Creating the database
 	db, err := database.NewDatabase(
@@ -55,6 +58,7 @@ func main() {
 	if err != nil {
 		panic(fmt.Errorf("failed to connect to redis: %w", err))
 	}
+	defer cache.Disconnect()
 
 	// Connect to pubsub
 	mq, err := queue.NewPubsubClient(queue.NewPubsubClientParams{
@@ -222,7 +226,6 @@ func main() {
 
 	// Start the server
 	addr := ":8080"
-	slog.Info("Starting server", "address", addr)
 	if err := server.StartServer(ctx, addr); err != nil {
 		slog.Error("Failed to start server", "error", err)
 		return
