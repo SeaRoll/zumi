@@ -19,13 +19,6 @@ components:
                     description: Error message
                     type: string
             type: object
-        healthResponse:
-            properties:
-                status:
-                    type: string
-            required:
-                - status
-            type: object
 info:
     description: Zumi API for managing books and events
     title: Zumi API
@@ -132,39 +125,6 @@ paths:
             summary: /api/v1/books/{id}
             tags:
                 - API
-    /docs:
-        get:
-            operationId: get_docs
-            responses:
-                default:
-                    description: ""
-            summary: /docs
-            tags:
-                - DOCS
-    /health:
-        get:
-            operationId: get_health
-            responses:
-                "200":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/healthResponse'
-                    description: OK
-                default:
-                    description: ""
-            summary: /health
-            tags:
-                - HEALTH
-    /openapi.yaml:
-        get:
-            operationId: get_openapi.yaml
-            responses:
-                default:
-                    description: ""
-            summary: /openapi.yaml
-            tags:
-                - OPENAPI.YAML
 servers:
     - description: Server URL
       url: http://localhost:8080
@@ -173,9 +133,3 @@ servers:
 tags:
     - description: Operations related to API
       name: API
-    - description: Operations related to DOCS
-      name: DOCS
-    - description: Operations related to HEALTH
-      name: HEALTH
-    - description: Operations related to OPENAPI.YAML
-      name: OPENAPI.YAML

@@ -1,18 +1,17 @@
-package cache_test
+package cache
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	"github.com/SeaRoll/zumi/cache"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestSetGetValues(t *testing.T) {
 	ctx := context.Background()
-	c, err := cache.NewCache(cache.CacheConfig{
+	c, err := NewCache(CacheConfig{
 		Host:           "localhost",
 		Port:           "6379",
 		Password:       "",
@@ -75,7 +74,7 @@ func TestSetGetValues(t *testing.T) {
 			err := c.Get(ctx, tt.key, &value)
 			if tt.expectedError {
 				assert.Error(t, err, "Expected error when retrieving value after timeout")
-				assert.ErrorIs(t, err, cache.ErrNil, "Expected valkey.Nil error when retrieving value after timeout")
+				assert.ErrorIs(t, err, ErrNil, "Expected valkey.Nil error when retrieving value after timeout")
 				t.Logf("Received value: %v", value)
 				return
 			} else {
@@ -88,7 +87,7 @@ func TestSetGetValues(t *testing.T) {
 
 func TestExists(t *testing.T) {
 	ctx := context.Background()
-	c, err := cache.NewCache(cache.CacheConfig{
+	c, err := NewCache(CacheConfig{
 		Host:           "localhost",
 		Port:           "6379",
 		Password:       "",
@@ -119,7 +118,7 @@ func TestExists(t *testing.T) {
 
 func TestDeleteKey(t *testing.T) {
 	ctx := context.Background()
-	c, err := cache.NewCache(cache.CacheConfig{
+	c, err := NewCache(CacheConfig{
 		Host:           "localhost",
 		Port:           "6379",
 		Password:       "",
@@ -148,7 +147,7 @@ func TestDeleteKey(t *testing.T) {
 
 func TestWrapped(t *testing.T) {
 	ctx := context.Background()
-	c, err := cache.NewCache(cache.CacheConfig{
+	c, err := NewCache(CacheConfig{
 		Host:           "localhost",
 		Port:           "6379",
 		Password:       "",
