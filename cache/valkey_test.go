@@ -9,7 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSetGetValues(t *testing.T) {
+func setupCache(t *testing.T) (context.Context, Cache) {
+	t.Helper()
 	ctx := context.Background()
 	c, err := NewCache(CacheConfig{
 		Host:           "localhost",
@@ -20,7 +21,14 @@ func TestSetGetValues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create cache: %v", err)
 	}
-	defer c.Disconnect()
+	t.Cleanup(func() {
+		c.Disconnect()
+	})
+	return ctx, c
+}
+
+func TestSetGetValues(t *testing.T) {
+	ctx, c := setupCache(t)
 
 	tests := []struct {
 		key           string        // key of the cache entry
@@ -86,22 +94,12 @@ func TestSetGetValues(t *testing.T) {
 }
 
 func TestExists(t *testing.T) {
-	ctx := context.Background()
-	c, err := NewCache(CacheConfig{
-		Host:           "localhost",
-		Port:           "6379",
-		Password:       "",
-		SentinelConfig: nil,
-	})
-	if err != nil {
-		t.Fatalf("Failed to create cache: %v", err)
-	}
-	defer c.Disconnect()
+	ctx, c := setupCache(t)
 
 	// add a key to the cache
 	key := uuid.NewString()
 	value := "testValue"
-	err = c.Set(ctx, key, value, 1*time.Second)
+	err := c.Set(ctx, key, value, 1*time.Second)
 	assert.NoError(t, err, "Unexpected error setting value in cache")
 
 	exists, err := c.Exists(ctx, key)
@@ -117,22 +115,12 @@ func TestExists(t *testing.T) {
 }
 
 func TestDeleteKey(t *testing.T) {
-	ctx := context.Background()
-	c, err := NewCache(CacheConfig{
-		Host:           "localhost",
-		Port:           "6379",
-		Password:       "",
-		SentinelConfig: nil,
-	})
-	if err != nil {
-		t.Fatalf("Failed to create cache: %v", err)
-	}
-	defer c.Disconnect()
+	ctx, c := setupCache(t)
 
 	// add a key to the cache
 	key := uuid.NewString()
 	value := "testValue"
-	err = c.Set(ctx, key, value, 1*time.Second)
+	err := c.Set(ctx, key, value, 1*time.Second)
 	assert.NoError(t, err, "Unexpected error setting value in cache")
 
 	// delete the key
@@ -146,17 +134,7 @@ func TestDeleteKey(t *testing.T) {
 }
 
 func TestWrapped(t *testing.T) {
-	ctx := context.Background()
-	c, err := NewCache(CacheConfig{
-		Host:           "localhost",
-		Port:           "6379",
-		Password:       "",
-		SentinelConfig: nil,
-	})
-	if err != nil {
-		t.Fatalf("Failed to create cache: %v", err)
-	}
-	defer c.Disconnect()
+	ctx, c := setupCache(t)
 
 	// call the wrapped function two times with timeout as -1, it should fallback each time
 	key := uuid.NewString()
