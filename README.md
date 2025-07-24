@@ -24,7 +24,6 @@ Take a look at the [examples](examples) directory for usage examples.
 
 ## Future Plans
 
-- Add support to generate OpenAPI documentation based on the API definitions.
 - Support more message queue implementations such as Kafka.
 - Add support for tracing and monitoring through OpenTelemetry/Prometheus (maybe using chi?).
 
