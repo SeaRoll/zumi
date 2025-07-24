@@ -64,12 +64,12 @@ func (c *cacheClient) connect() error {
 		Sentinel:    c.getSentinelConfig(),
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create valkey client: %w", err)
 	}
 
 	client := valkeycompat.NewAdapter(valcli)
 	if err := client.Ping(context.Background()).Err(); err != nil {
-		return err
+		return fmt.Errorf("failed to ping cache: %w", err)
 	}
 
 	c.valcli = valcli
@@ -103,16 +103,13 @@ func (c *cacheClient) healthCheck() {
 // Publish publishes a message to a channel.
 func (c *cacheClient) Publish(ctx context.Context, channel string, message string) error {
 	if channel == "" {
-		slog.Warn("Empty channel, not publishing")
-		return nil
+		return fmt.Errorf("channel cannot be empty")
 	}
 
 	if message == "" {
-		slog.Warn("Empty message, not publishing")
-		return nil
+		return fmt.Errorf("message cannot be empty")
 	}
 
-	slog.Info("Publishing message to channel", "channel", channel, "message", message)
 	return c.client.Publish(ctx, channel, message).Err()
 }
 
@@ -121,7 +118,11 @@ func (c *cacheClient) Publish(ctx context.Context, channel string, message strin
 func (c *cacheClient) Subscribe(channel string, callback func(msg string) error) error {
 	ctx := context.Background()
 	pubsub := c.client.Subscribe(ctx, channel)
-	defer pubsub.Close()
+	defer func() {
+		if err := pubsub.Close(); err != nil {
+			slog.Error("Error closing pubsub", "error", err)
+		}
+	}()
 
 	slog.Info("Subscribing to channel", "channel", channel)
 
@@ -189,7 +190,7 @@ func (c *cacheClient) Disconnect(noTeardown ...bool) {
 func (c *cacheClient) Set(ctx context.Context, key string, value any, timeout time.Duration) error {
 	jsonValue, err := json.Marshal(value)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal value: %w", err)
 	}
 	jsonValueString := string(jsonValue)
 	return c.client.Set(ctx, key, jsonValueString, timeout).Err()
@@ -204,11 +205,11 @@ func (c *cacheClient) IncrBy(ctx context.Context, key string, increment int64) (
 func (c *cacheClient) Get(ctx context.Context, key string, value any) error {
 	result, err := c.client.Get(ctx, key).Result()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get value from cache: %w", err)
 	}
 
 	if err := json.Unmarshal([]byte(result), value); err != nil {
-		return err
+		return fmt.Errorf("failed to unmarshal value: %w", err)
 	}
 
 	return nil
@@ -229,14 +230,13 @@ func (c *cacheClient) GetWithResetTTL(ctx context.Context, key string, value any
 func (c *cacheClient) Exists(ctx context.Context, key string) (bool, error) {
 	result, err := c.client.Exists(ctx, key).Result()
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to check if key exists: %w", err)
 	}
 	return result == 1, nil
 }
 
 // Delete removes a key from the cache
 func (c *cacheClient) Delete(ctx context.Context, key string) error {
-	slog.Debug("Deleting key from cache", "key", key)
 	return c.client.Del(ctx, key).Err()
 }
 

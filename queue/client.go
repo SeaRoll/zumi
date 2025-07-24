@@ -86,7 +86,7 @@ func (p *pubsubClient) Publish(topic string, message []byte, timeout ...time.Dur
 		defer cancel()
 
 		_, err := p.js.Publish(ctx, topic, message)
-		return err
+		return fmt.Errorf("failed to publish message to topic %s: %w", topic, err)
 	}, p.retryPolicy)
 }
 
@@ -210,7 +210,12 @@ func (p *pubsubClient) fetchMessages(
 	if err := failsafe.Run(func() error {
 		var err error
 		msgs, err = cons.Fetch(config.FetchLimit, jetstream.FetchMaxWait(fetchWait))
-		return err
+		return fmt.Errorf(
+			"failed to fetch messages for consumer %s on subject %s: %w",
+			config.ConsumerName,
+			config.Subject,
+			err,
+		)
 	}, p.retryPolicy); err != nil {
 		return nil, fmt.Errorf(
 			"failed to fetch messages for consumer %s on subject %s: %w",

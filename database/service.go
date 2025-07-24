@@ -89,21 +89,18 @@ func (d *dbo) connectAndMigratePool(ctx context.Context) error {
 
 	config, err := pgxpool.ParseConfig(d.connectionUrl)
 	if err != nil {
-		slog.Error("Unable to parse config", "error", err)
-		return err
+		return fmt.Errorf("failed to parse database config: %w", err)
 	}
 
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
-		slog.Error("Unable to create connection pool", "error", err)
-		return err
+		return fmt.Errorf("failed to create database connection pool: %w", err)
 	}
 
 	dbo := stdlib.OpenDBFromPool(pool)
 
 	if err := migrate(dbo, d.migrations); err != nil {
-		slog.Error("Failed to migrate", "error", err)
-		return err
+		return fmt.Errorf("failed to run database migrations: %w", err)
 	}
 
 	d.pool = pool
