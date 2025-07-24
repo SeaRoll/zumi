@@ -43,7 +43,7 @@ func TestSetGetValues(t *testing.T) {
 			value:    42,
 			timeout:  5 * time.Second,
 			waitFor:  time.Second,
-			expected: float64(42), // Redis stores numbers as float64
+			expected: float64(42), // Valkey stores numbers as float64
 		},
 		{ // normal set struct value
 			key:      uuid.NewString(),
