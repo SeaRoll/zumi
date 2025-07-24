@@ -14,6 +14,7 @@ import (
 
 //go:generate go run github.com/SeaRoll/interfacer/cmd -struct=cacheClient -name=Cache
 
+var ErrNil = valkey.Nil // Exported error for nil values
 const DefaultTimeout = 15 * time.Minute
 
 type cacheClient struct {

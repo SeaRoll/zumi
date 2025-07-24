@@ -12,7 +12,7 @@ import (
 
 func TestSetGetValues(t *testing.T) {
 	ctx := context.Background()
-	cache, err := cache.NewCache(cache.CacheConfig{
+	c, err := cache.NewCache(cache.CacheConfig{
 		Host:           "localhost",
 		Port:           "6379",
 		Password:       "",
@@ -21,7 +21,7 @@ func TestSetGetValues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create cache: %v", err)
 	}
-	defer cache.Disconnect()
+	defer c.Disconnect()
 
 	tests := []struct {
 		key           string        // key of the cache entry
@@ -64,7 +64,7 @@ func TestSetGetValues(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.key, func(t *testing.T) {
-			if err := cache.Set(ctx, tt.key, tt.value, tt.timeout); err != nil {
+			if err := c.Set(ctx, tt.key, tt.value, tt.timeout); err != nil {
 				t.Fatalf("Failed to set value: %v", err)
 			}
 
@@ -72,9 +72,10 @@ func TestSetGetValues(t *testing.T) {
 			time.Sleep(tt.waitFor)
 
 			var value any
-			err := cache.Get(ctx, tt.key, &value)
+			err := c.Get(ctx, tt.key, &value)
 			if tt.expectedError {
 				assert.Error(t, err, "Expected error when retrieving value after timeout")
+				assert.ErrorIs(t, err, cache.ErrNil, "Expected valkey.Nil error when retrieving value after timeout")
 				t.Logf("Received value: %v", value)
 				return
 			} else {
@@ -87,7 +88,7 @@ func TestSetGetValues(t *testing.T) {
 
 func TestExists(t *testing.T) {
 	ctx := context.Background()
-	cache, err := cache.NewCache(cache.CacheConfig{
+	c, err := cache.NewCache(cache.CacheConfig{
 		Host:           "localhost",
 		Port:           "6379",
 		Password:       "",
@@ -96,29 +97,29 @@ func TestExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create cache: %v", err)
 	}
-	defer cache.Disconnect()
+	defer c.Disconnect()
 
 	// add a key to the cache
 	key := uuid.NewString()
 	value := "testValue"
-	err = cache.Set(ctx, key, value, 1*time.Second)
+	err = c.Set(ctx, key, value, 1*time.Second)
 	assert.NoError(t, err, "Unexpected error setting value in cache")
 
-	exists, err := cache.Exists(ctx, key)
+	exists, err := c.Exists(ctx, key)
 	assert.NoError(t, err, "Unexpected error checking if key exists")
 	assert.True(t, exists, "Expected key to exist in cache")
 
 	// wait for the key to expire
 	time.Sleep(1 * time.Second)
 
-	exists, err = cache.Exists(ctx, key)
+	exists, err = c.Exists(ctx, key)
 	assert.NoError(t, err, "Unexpected error checking if key exists after expiration")
 	assert.False(t, exists, "Expected key to not exist in cache after expiration")
 }
 
 func TestDeleteKey(t *testing.T) {
 	ctx := context.Background()
-	cache, err := cache.NewCache(cache.CacheConfig{
+	c, err := cache.NewCache(cache.CacheConfig{
 		Host:           "localhost",
 		Port:           "6379",
 		Password:       "",
@@ -127,27 +128,27 @@ func TestDeleteKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create cache: %v", err)
 	}
-	defer cache.Disconnect()
+	defer c.Disconnect()
 
 	// add a key to the cache
 	key := uuid.NewString()
 	value := "testValue"
-	err = cache.Set(ctx, key, value, 1*time.Second)
+	err = c.Set(ctx, key, value, 1*time.Second)
 	assert.NoError(t, err, "Unexpected error setting value in cache")
 
 	// delete the key
-	err = cache.Delete(ctx, key)
+	err = c.Delete(ctx, key)
 	assert.NoError(t, err, "Unexpected error deleting key from cache")
 
 	// check if the key exists
-	exists, err := cache.Exists(ctx, key)
+	exists, err := c.Exists(ctx, key)
 	assert.NoError(t, err, "Unexpected error checking if key exists after deletion")
 	assert.False(t, exists, "Expected key to not exist in cache after deletion")
 }
 
 func TestWrapped(t *testing.T) {
 	ctx := context.Background()
-	cache, err := cache.NewCache(cache.CacheConfig{
+	c, err := cache.NewCache(cache.CacheConfig{
 		Host:           "localhost",
 		Port:           "6379",
 		Password:       "",
@@ -156,14 +157,14 @@ func TestWrapped(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create cache: %v", err)
 	}
-	defer cache.Disconnect()
+	defer c.Disconnect()
 
 	// call the wrapped function two times with timeout as -1, it should fallback each time
 	key := uuid.NewString()
 	timesCalled := 0
 	var anyData string
 	for range 2 {
-		if err := cache.Wrapped(ctx, key, &anyData, func() error {
+		if err := c.Wrapped(ctx, key, &anyData, func() error {
 			timesCalled++
 			anyData = "fallbackValue"
 			return nil
@@ -177,7 +178,7 @@ func TestWrapped(t *testing.T) {
 	key = uuid.NewString()
 	timesCalled = 0
 	for range 2 {
-		if err := cache.Wrapped(ctx, key, &anyData, func() error {
+		if err := c.Wrapped(ctx, key, &anyData, func() error {
 			timesCalled++
 			anyData = "fallbackValue"
 			return nil
