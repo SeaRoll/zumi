@@ -86,7 +86,10 @@ func (p *pubsubClient) Publish(topic string, message []byte, timeout ...time.Dur
 		defer cancel()
 
 		_, err := p.js.Publish(ctx, topic, message)
-		return fmt.Errorf("failed to publish message to topic %s: %w", topic, err)
+		if err != nil {
+			return fmt.Errorf("failed to publish message to topic %s: %w", topic, err)
+		}
+		return nil
 	}, p.retryPolicy)
 }
 

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
@@ -20,7 +19,7 @@ import (
 
 type dbo struct {
 	connectionUrl string
-	migrations    fs.FS
+	migrations    *fs.FS
 	pool          *pgxpool.Pool
 	isTeardown    atomic.Bool
 }
@@ -35,8 +34,29 @@ func NewDatabase(
 ) (Database, error) {
 	d := &dbo{
 		connectionUrl: connectionUrl,
-		migrations:    migrations,
+		migrations:    &migrations,
 		isTeardown:    atomic.Bool{},
+	}
+
+	if err := d.connectAndMigratePool(ctx); err != nil {
+		return nil, fmt.Errorf("failed to connect and migrate pool: %w", err)
+	}
+
+	d.runReconnect()
+	return d, nil
+}
+
+// NewDatabaseNoMigrations creates a new database connection pool without running migrations.
+// It takes a context for the connection and a connection URL.
+// It returns a Database interface or an error if the connection fails.
+func NewDatabaseNoMigrations(
+	ctx context.Context,
+	connectionUrl string,
+) (Database, error) {
+	d := &dbo{
+		connectionUrl: connectionUrl,
+		isTeardown:    atomic.Bool{},
+		migrations:    nil,
 	}
 
 	if err := d.connectAndMigratePool(ctx); err != nil {
@@ -97,10 +117,11 @@ func (d *dbo) connectAndMigratePool(ctx context.Context) error {
 		return fmt.Errorf("failed to create database connection pool: %w", err)
 	}
 
-	dbo := stdlib.OpenDBFromPool(pool)
-
-	if err := migrate(dbo, d.migrations); err != nil {
-		return fmt.Errorf("failed to run database migrations: %w", err)
+	if d.migrations != nil {
+		dbo := stdlib.OpenDBFromPool(pool)
+		if err := migrate(dbo, *d.migrations); err != nil {
+			return fmt.Errorf("failed to run database migrations: %w", err)
+		}
 	}
 
 	d.pool = pool
@@ -211,58 +232,4 @@ func (d *dbo) runTransactionWithOpts(ctx context.Context, fn func(tx DBTX) error
 	}
 
 	return nil
-}
-
-// SelectRow executes a query and returns a single row as a struct of type T.
-// It uses the provided dbtx to execute the query and collects the result into a struct of type T.
-// If the query fails or no rows are returned, it returns an error.
-func SelectRow[T any](ctx context.Context, dbtx DBTX, query string, args ...any) (T, error) {
-	var result T
-	row, err := dbtx.Query(ctx, query, args...)
-	if err != nil {
-		return result, fmt.Errorf("failed to execute query: %w", err)
-	}
-
-	result, err = pgx.CollectOneRow(row, pgx.RowToStructByName[T])
-	if err != nil {
-		return result, fmt.Errorf("failed to collect row: %w", err)
-	}
-
-	return result, nil
-}
-
-// SelectRows executes a query and returns multiple rows as a slice of structs of type T.
-// It uses the provided dbtx to execute the query and collects the results into a slice of type T.
-// If the query fails or no rows are returned, it returns an error.
-func SelectRows[T any](ctx context.Context, dbtx DBTX, query string, args ...any) ([]T, error) {
-	rows, err := dbtx.Query(ctx, query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute query: %w", err)
-	}
-	defer rows.Close()
-
-	results, err := pgx.CollectRows(rows, pgx.RowToStructByName[T])
-	if err != nil {
-		return nil, fmt.Errorf("failed to collect rows: %w", err)
-	}
-
-	return results, nil
-}
-
-// ExecQuery executes a query that does not return rows (e.g., INSERT, UPDATE, DELETE).
-// It uses the provided dbtx to execute the query and returns an error if the execution fails.
-func ExecQuery(ctx context.Context, dbtx DBTX, query string, args ...any) error {
-	_, err := dbtx.Exec(ctx, query, args...)
-	if err != nil {
-		return fmt.Errorf("failed to execute query: %w", err)
-	}
-	return nil
-}
-
-// DBTX is an interface that defines the methods for executing queries and transactions.
-// only supports pgx package related methods.
-type DBTX interface {
-	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
-	Query(context.Context, string, ...any) (pgx.Rows, error)
-	QueryRow(context.Context, string, ...any) pgx.Row
 }

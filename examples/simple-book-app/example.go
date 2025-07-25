@@ -15,14 +15,16 @@ import (
 	"github.com/SeaRoll/zumi/database"
 	"github.com/SeaRoll/zumi/queue"
 	"github.com/SeaRoll/zumi/server"
+	"github.com/google/uuid"
 )
 
 //go:generate go run ../../server/gen "-title=Zumi API" "-version=1.0.0" "-description=Zumi API for managing books and events" "-servers=http://localhost:8080,https://api.example.com"
 
 type Book struct {
-	ID          int    `db:"id" json:"id"`
-	Title       string `db:"title" json:"title"`
-	Description string `db:"description" json:"description"`
+	TableName   string    `db:"-" table:"books b" json:"-"`
+	ID          uuid.UUID `db:"id" json:"id" primary:"true"`
+	Title       string    `db:"title" json:"title"`
+	Description string    `db:"description" json:"description"`
 }
 
 var (
@@ -147,7 +149,7 @@ func main() {
 		var books []Book
 		if err := db.WithTX(req.Ctx, func(tx database.DBTX) error {
 			var err error
-			books, err = database.SelectRows[Book](req.Ctx, tx, "SELECT * FROM books")
+			books, err = database.Find[Book](req.Ctx, tx, "")
 			if err != nil {
 				return fmt.Errorf("failed to retrieve all books: %w", err)
 			}
@@ -166,7 +168,7 @@ func main() {
 	server.AddHandler("GET /api/v1/books/{id}", func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Ctx context.Context `ctx:"context"`
-			ID  int             `path:"id"`
+			ID  uuid.UUID       `path:"id"`
 		}
 		if err := server.ParseRequest(r, &req); err != nil {
 			server.WriteError(w, http.StatusBadRequest, fmt.Sprintf("failed to parse request: %v", err))
@@ -176,7 +178,7 @@ func main() {
 		var book Book
 		if err := db.WithTX(req.Ctx, func(tx database.DBTX) error {
 			var err error
-			book, err = database.SelectRow[Book](req.Ctx, tx, "SELECT * FROM books WHERE id = $1", req.ID)
+			book, err = database.FindOne[Book](req.Ctx, tx, "WHERE id = $1", req.ID)
 			if err != nil {
 				return fmt.Errorf("failed to retrieve book: %w", err)
 			}
@@ -193,20 +195,27 @@ func main() {
 	server.AddHandler("POST /api/v1/books", func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Ctx  context.Context `ctx:"context"`
-			Book Book            `body:"json"`
+			Book struct {
+				Title       string `json:"title"`
+				Description string `json:"description"`
+			} `body:"json"`
 		}
 		if err := server.ParseRequest(r, &req); err != nil {
 			server.WriteError(w, http.StatusBadRequest, fmt.Sprintf("failed to parse request: %v", err))
 			return
 		}
 
+		newBook := Book{
+			ID:          uuid.New(),
+			Title:       req.Book.Title,
+			Description: req.Book.Description,
+		}
+
 		if err := db.WithTX(req.Ctx, func(tx database.DBTX) error {
-			if err := database.ExecQuery(
+			if err := database.Save(
 				ctx,
 				tx,
-				"INSERT INTO books (title, description) VALUES ($1, $2)",
-				req.Book.Title,
-				req.Book.Description,
+				newBook,
 			); err != nil {
 				return fmt.Errorf("failed to insert book: %w", err)
 			}
@@ -217,7 +226,7 @@ func main() {
 		}
 
 		// Publish the book event to the queue
-		bookEvent, err := json.Marshal(req.Book)
+		bookEvent, err := json.Marshal(newBook)
 		if err != nil {
 			server.WriteError(w, http.StatusInternalServerError, fmt.Sprintf("failed to marshal book event: %v", err))
 			return

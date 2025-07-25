@@ -5,7 +5,9 @@ components:
                 description:
                     type: string
                 id:
-                    type: integer
+                    description: UUID formatted string
+                    format: uuid
+                    type: string
                 title:
                     type: string
             required:
@@ -64,7 +66,15 @@ paths:
                 content:
                     application/json:
                         schema:
-                            $ref: '#/components/schemas/Book'
+                            properties:
+                                description:
+                                    type: string
+                                title:
+                                    type: string
+                            required:
+                                - title
+                                - description
+                            type: object
             responses:
                 "201":
                     content:
@@ -100,7 +110,9 @@ paths:
                   name: id
                   required: true
                   schema:
-                    type: integer
+                    description: UUID formatted string
+                    format: uuid
+                    type: string
             responses:
                 "200":
                     content:
