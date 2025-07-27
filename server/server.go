@@ -2,12 +2,16 @@ package server
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
 )
+
+//go:embed banner.txt
+var banner string
 
 type MiddlewareFunc func(http.Handler) http.Handler
 
@@ -24,6 +28,9 @@ func newServer() *server {
 // Starts a running server by the given address.
 // Stops the server when it receives ctx.Done()
 func (s *server) start(ctx context.Context, addr string) error {
+	fmt.Println(banner)
+	slog.Info("starting server", "address", addr)
+
 	var handler http.Handler = s.mux
 	// wrap by decorating the mux with all middlewares
 	for _, middleware := range s.middlewares {

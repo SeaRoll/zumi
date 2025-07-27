@@ -3,16 +3,10 @@ package server
 import (
 	"context"
 	_ "embed"
-	"fmt"
-	"log/slog"
 	"net/http"
 )
 
-var (
-	//go:embed banner.txt
-	banner       string
-	globalServer *server = newServer()
-)
+var globalServer *server = newServer()
 
 // MiddlewareFunc defines the type for middleware functions.
 // The first middleware added is the most nested one.
@@ -30,9 +24,6 @@ func AddHandler(path string, handler http.HandlerFunc) {
 // StartServer initializes and starts the server with the given address.
 // It will return once the server is stopped or an error occurs.
 func StartServer(ctx context.Context, addr string) error {
-	// print banner
-	fmt.Println(banner)
-	slog.Info("starting server", "address", addr)
 	return globalServer.start(ctx, addr)
 }
 
