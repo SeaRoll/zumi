@@ -11,3 +11,18 @@ services:
       interval: 1s
       timeout: 3s
       retries: 5
+  db:
+    image: postgres:17
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: foodie
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: mysecretpassword
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      start_period: 5s
+      interval: 5s
+      timeout: 3s
+      retries: 3
