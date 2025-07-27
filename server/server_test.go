@@ -41,7 +41,7 @@ func waitUntilServerStarted(t *testing.T, addr string) {
 		if err != nil {
 			return err
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 		return nil
 	})
 }
@@ -56,7 +56,7 @@ func waitUntilServerStopped(t *testing.T, addr string) {
 		}
 		conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), 5*time.Second)
 		if err == nil {
-			conn.Close()
+			defer func() { _ = conn.Close() }()
 			return fmt.Errorf("server still running at %s", addr)
 		}
 		return nil
@@ -107,7 +107,7 @@ func TestServer(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to make request: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("Expected status OK, got %s", resp.Status)
@@ -130,7 +130,7 @@ func TestServer(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to make request: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("Expected status OK, got %s", resp.Status)
