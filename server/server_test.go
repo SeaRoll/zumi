@@ -3,16 +3,73 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"net"
 	"net/http"
 	"testing"
 	"time"
 )
 
+// await calls the method until it returns nil or timeout occurs.
+func await(t *testing.T, fn func() error) {
+	t.Helper()
+	timeout := time.After(5 * time.Second)
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timeout:
+			t.Fatal("Timeout waiting for condition")
+		case <-ticker.C:
+			if err := fn(); err == nil {
+				return
+			}
+		}
+	}
+}
+
+// waitUntilServerStarted waits until the server is reachable at the given address.
+func waitUntilServerStarted(t *testing.T, addr string) {
+	t.Helper()
+	await(t, func() error {
+		host, port, err := net.SplitHostPort(addr)
+		if err != nil {
+			return err
+		}
+		conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), 5*time.Second)
+		if err != nil {
+			return err
+		}
+		defer conn.Close()
+		return nil
+	})
+}
+
+// waitUntilServerStopped waits until the server is stopped by checking if it can connect to the address.
+func waitUntilServerStopped(t *testing.T, addr string) {
+	t.Helper()
+	await(t, func() error {
+		host, port, err := net.SplitHostPort(addr)
+		if err != nil {
+			return err
+		}
+		conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), 5*time.Second)
+		if err == nil {
+			conn.Close()
+			return fmt.Errorf("server still running at %s", addr)
+		}
+		return nil
+	})
+}
+
 func TestServer(t *testing.T) {
+	addr := "localhost:8080"
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(func() {
 		cancel() // Ensure the context is cancelled after the test
 		ClearServer()
+		waitUntilServerStopped(t, addr)
 	})
 
 	AddHandler("GET /health", func(w http.ResponseWriter, r *http.Request) {
@@ -36,7 +93,6 @@ func TestServer(t *testing.T) {
 	})
 
 	// perform http request to the server
-	addr := "localhost:8080"
 	go func() {
 		if err := StartServer(ctx, addr); err != nil {
 			t.Errorf("Failed to start server: %v", err)
@@ -44,7 +100,7 @@ func TestServer(t *testing.T) {
 	}()
 
 	// Wait for the server to start
-	time.Sleep(1 * time.Second)
+	waitUntilServerStarted(t, addr)
 
 	t.Run("Health Check", func(t *testing.T) {
 		resp, err := http.Get("http://" + addr + "/health?message=Yohan")
