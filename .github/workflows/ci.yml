@@ -3,6 +3,9 @@ name: Continuous Integration
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches:
+      - main
 
 jobs:
   # Runs the build process to ensure that the code compiles and is ready for deployment.
