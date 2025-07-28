@@ -29,6 +29,8 @@ paths:
         get:
             description: |
                 Get all books handler
+
+                gen:tag=Books
             operationId: get_api_v1_books
             responses:
                 "200":
@@ -55,10 +57,12 @@ paths:
                     description: ""
             summary: /api/v1/books
             tags:
-                - API
+                - Books
         post:
             description: |
                 Add a book handler
+
+                gen:tag=Books
             operationId: post_api_v1_books
             requestBody:
                 content:
@@ -87,13 +91,15 @@ paths:
                     description: ""
             summary: /api/v1/books
             tags:
-                - API
+                - Books
     /api/v1/books/{id}:
         get:
             description: |
                 Get a book by ID handler
 
                 This handler retrieves a book by its ID from the path parameter.
+
+                gen:tag=Books
             operationId: get_api_v1_books_id
             parameters:
                 - in: path
@@ -124,12 +130,12 @@ paths:
                     description: ""
             summary: /api/v1/books/{id}
             tags:
-                - API
+                - Books
 servers:
     - description: Server URL
       url: http://localhost:8080
     - description: Server URL
       url: https://api.example.com
 tags:
-    - description: Operations related to API
-      name: API
+    - description: Operations related to Books
+      name: Books

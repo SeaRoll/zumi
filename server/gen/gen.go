@@ -243,9 +243,17 @@ func (g *schemaGenerator) processAddHandler(call *ast.CallExpr, comments []*ast.
 		return
 	}
 
+	// extract a comment line that starts with `gen:tag=`
+	tag := "default"
+	if strings.Contains(description, "gen:tag=") {
+		tagParts := strings.Split(description, "gen:tag=")
+		if len(tagParts) > 1 {
+			tag = strings.TrimSpace(strings.Split(tagParts[1], "\n")[0])
+		}
+	}
+
 	reqStruct, responses := g.findRequestAndResponseTypes(handlerFunc)
 
-	tag := generateTagFromPath(path)
 	op := &openapi3.Operation{
 		Summary:     path,
 		OperationID: generateOperationID(method, path),
@@ -506,16 +514,6 @@ func (g *schemaGenerator) goTypeToSchemaRef(typ types.Type) *openapi3.SchemaRef 
 	}
 
 	return &openapi3.SchemaRef{Value: schema}
-}
-
-// generateTagFromPath creates a tag from the first segment of a URL path.
-func generateTagFromPath(path string) string {
-	trimmedPath := strings.TrimPrefix(path, "/")
-	parts := strings.Split(trimmedPath, "/")
-	if len(parts) > 0 && parts[0] != "" {
-		return strings.ToUpper(parts[0])
-	}
-	return "Default"
 }
 
 // generateOperationID creates a unique ID from the method and path.

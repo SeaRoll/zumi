@@ -135,6 +135,8 @@ func main() {
 	})
 
 	// Get all books handler
+	//
+	// gen:tag=Books
 	server.AddHandler("GET /api/v1/books", func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Ctx context.Context `ctx:"context"`
@@ -163,6 +165,8 @@ func main() {
 	// Get a book by ID handler
 	//
 	// This handler retrieves a book by its ID from the path parameter.
+	//
+	// gen:tag=Books
 	server.AddHandler("GET /api/v1/books/{id}", func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Ctx context.Context `ctx:"context"`
@@ -190,6 +194,8 @@ func main() {
 	})
 
 	// Add a book handler
+	//
+	// gen:tag=Books
 	server.AddHandler("POST /api/v1/books", func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Ctx  context.Context `ctx:"context"`
