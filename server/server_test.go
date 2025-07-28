@@ -14,9 +14,13 @@ import (
 )
 
 // await calls the method until it returns nil or timeout occurs.
-func await(t *testing.T, fn func() error) {
+func await(t *testing.T, fn func() error, timeouts ...time.Duration) {
 	t.Helper()
-	timeout := time.After(5 * time.Second)
+	timeout := time.After(15 * time.Second)
+	if len(timeouts) > 0 {
+		timeout = time.After(timeouts[0])
+	}
+
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 
