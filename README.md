@@ -7,7 +7,7 @@ required in production environments, such as routing, database access, caching, 
 ## Features
 
 - **Server**: A simple HTTP server with routing and middleware support. Also supports OpenAPI generation through `go:generate`.
-- **Database**: A database abstraction layer using `pgx` for PostgreSQL.
+- **Database**: A database abstraction layer using `pgx` for PostgreSQL. Pagination support is provided through `SelectRowsPageable`.
 - **Queue**: A message queue implementation using NATS for pub/sub messaging.
 - **Cache**: A caching layer using `valkey` for fast key-value storage, with optional support for sentinel & pubsub messaging.
 - **Resilience**: Built-in support for retries and circuit breakers using `failsafe-go`.

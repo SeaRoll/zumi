@@ -19,6 +19,57 @@ components:
                     description: Error message
                     type: string
             type: object
+        PageOfBook:
+            properties:
+                content:
+                    items:
+                        $ref: '#/components/schemas/Book'
+                    type: array
+                empty:
+                    type: boolean
+                first:
+                    type: boolean
+                last:
+                    type: boolean
+                number:
+                    type: integer
+                numberOfElements:
+                    type: integer
+                pageable:
+                    $ref: '#/components/schemas/PageRequest'
+                size:
+                    type: integer
+                totalElements:
+                    type: integer
+                totalPages:
+                    type: integer
+            required:
+                - content
+                - pageable
+                - totalElements
+                - totalPages
+                - number
+                - size
+                - numberOfElements
+                - last
+                - first
+                - empty
+            type: object
+        PageRequest:
+            properties:
+                page:
+                    type: integer
+                size:
+                    type: integer
+                sort:
+                    items:
+                        type: string
+                    type: array
+            required:
+                - page
+                - size
+                - sort
+            type: object
 info:
     description: Zumi API for managing books and events
     title: Zumi API
@@ -29,14 +80,30 @@ paths:
         get:
             description: Get all books handler
             operationId: get_api_v1_books
+            parameters:
+                - in: query
+                  name: page
+                  required: true
+                  schema:
+                    type: integer
+                - in: query
+                  name: size
+                  required: true
+                  schema:
+                    type: integer
+                - in: query
+                  name: sort
+                  required: true
+                  schema:
+                    items:
+                        type: string
+                    type: array
             responses:
                 "200":
                     content:
                         application/json:
                             schema:
-                                items:
-                                    $ref: '#/components/schemas/Book'
-                                type: array
+                                $ref: '#/components/schemas/PageOfBook'
                     description: OK
                 "400":
                     content:

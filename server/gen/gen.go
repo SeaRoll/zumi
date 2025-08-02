@@ -447,12 +447,33 @@ func (g *schemaGenerator) extractRequestInfo(reqStruct *types.Struct) (openapi3.
 	return params, requestBody
 }
 
-// goTypeToSchemaRef converts a Go type into an OpenAPI Schema Reference.
+// goTypeToSchemaRef is the public entry point for converting a Go type into an OpenAPI Schema Reference.
 func (g *schemaGenerator) goTypeToSchemaRef(typ types.Type) *openapi3.SchemaRef {
+	// Start the recursive process without any initial substitutions.
+	return g.goTypeToSchemaRefInternal(typ, nil)
+}
+
+// goTypeToSchemaRefInternal is the recursive worker for schema generation, handling generic type substitutions.
+func (g *schemaGenerator) goTypeToSchemaRefInternal(typ types.Type, substitutions map[*types.TypeParam]types.Type) *openapi3.SchemaRef {
 	if typ == nil {
 		return nil
 	}
+
+	// If the type is a generic type parameter (e.g., T), substitute it with the actual type from the map.
+	if tp, ok := typ.(*types.TypeParam); ok {
+		if substType, found := substitutions[tp]; found {
+			return g.goTypeToSchemaRefInternal(substType, substitutions)
+		}
+	}
+
+	// Handle named types (structs, interfaces, etc.)
 	if named, ok := typ.(*types.Named); ok {
+		// This is an instantiated generic type, e.g., Page[Book].
+		if named.TypeArgs().Len() > 0 {
+			return g.handleInstantiatedGeneric(named, substitutions)
+		}
+
+		// This is a regular named type.
 		typeName := named.Obj().Name()
 		if customSchema, exists := customTypeSchemas[typeName]; exists {
 			return &openapi3.SchemaRef{Value: customSchema}
@@ -460,17 +481,19 @@ func (g *schemaGenerator) goTypeToSchemaRef(typ types.Type) *openapi3.SchemaRef 
 		if ref, exists := g.generatedTypes[typeName]; exists {
 			return ref
 		}
+
 		schemaRef := openapi3.NewSchemaRef("#/components/schemas/"+typeName, nil)
-		g.generatedTypes[typeName] = schemaRef
-		underlyingSchema := g.goTypeToSchemaRef(named.Underlying())
+		g.generatedTypes[typeName] = schemaRef // Cache before recursion to handle recursive types.
+		underlyingSchema := g.goTypeToSchemaRefInternal(named.Underlying(), substitutions)
 		g.openAPISpec.Components.Schemas[typeName] = underlyingSchema
 		return schemaRef
 	}
 
 	if ptr, ok := typ.(*types.Pointer); ok {
-		return g.goTypeToSchemaRef(ptr.Elem())
+		return g.goTypeToSchemaRefInternal(ptr.Elem(), substitutions)
 	}
 
+	// For unnamed types, generate the schema directly.
 	schema := openapi3.NewSchema()
 	switch t := typ.Underlying().(type) {
 	case *types.Basic:
@@ -503,17 +526,18 @@ func (g *schemaGenerator) goTypeToSchemaRef(typ types.Type) *openapi3.SchemaRef 
 			if _, isPointer := field.Type().(*types.Pointer); !isPointer {
 				requiredFields = append(requiredFields, jsonName)
 			}
-			schema.Properties[jsonName] = g.goTypeToSchemaRef(field.Type())
+			// Recursively generate the schema for the field type, passing substitutions.
+			schema.Properties[jsonName] = g.goTypeToSchemaRefInternal(field.Type(), substitutions)
 		}
 		if len(requiredFields) > 0 {
 			schema.Required = requiredFields
 		}
 	case *types.Slice:
 		schema.Type = &openapi3.Types{"array"}
-		schema.Items = g.goTypeToSchemaRef(t.Elem())
+		schema.Items = g.goTypeToSchemaRefInternal(t.Elem(), substitutions)
 	case *types.Map:
 		schema.Type = &openapi3.Types{"object"}
-		schema.AdditionalProperties = openapi3.AdditionalProperties{Schema: g.goTypeToSchemaRef(t.Elem())}
+		schema.AdditionalProperties = openapi3.AdditionalProperties{Schema: g.goTypeToSchemaRefInternal(t.Elem(), substitutions)}
 	}
 
 	return &openapi3.SchemaRef{Value: schema}
@@ -525,4 +549,62 @@ func generateOperationID(method, path string) string {
 	path = strings.ReplaceAll(path, "{", "")
 	path = strings.ReplaceAll(path, "}", "")
 	return strings.ToLower(method) + "_" + strings.Join(strings.Fields(path), "_")
+}
+
+// generateTypeName creates a descriptive name for a type, handling generics recursively.
+// e.g., Page[Book] -> "PageOfBook"
+func (g *schemaGenerator) generateTypeName(typ types.Type) string {
+	if named, ok := typ.(*types.Named); ok {
+		baseName := named.Obj().Name()
+		if named.TypeArgs().Len() > 0 {
+			var argNames []string
+			typeArgs := named.TypeArgs()
+			for i := 0; i < typeArgs.Len(); i++ {
+				argNames = append(argNames, g.generateTypeName(typeArgs.At(i)))
+			}
+			return baseName + "Of" + strings.Join(argNames, "")
+		}
+		return baseName
+	}
+	if ptr, ok := typ.(*types.Pointer); ok {
+		return g.generateTypeName(ptr.Elem())
+	}
+	// For basic types, capitalize their name. e.g., "string" -> "String"
+	return strings.Title(typ.Underlying().String())
+}
+
+// handleInstantiatedGeneric generates a schema for an instantiated generic type like Page[Book].
+func (g *schemaGenerator) handleInstantiatedGeneric(named *types.Named, existingSubstitutions map[*types.TypeParam]types.Type) *openapi3.SchemaRef {
+	// 1. Generate a unique name for the specific instantiation, e.g., "PageOfBook".
+	uniqueName := g.generateTypeName(named)
+
+	// 2. If we've already generated this specific generic instantiation, return its reference.
+	if ref, exists := g.generatedTypes[uniqueName]; exists {
+		return ref
+	}
+
+	// 3. Create a new reference and cache it immediately to handle recursive structures.
+	schemaRef := openapi3.NewSchemaRef("#/components/schemas/"+uniqueName, nil)
+	g.generatedTypes[uniqueName] = schemaRef
+
+	// 4. Create the substitution map for this generic type's parameters.
+	// It maps the generic type's parameters (e.g., T) to its arguments (e.g., Book).
+	newSubstitutions := make(map[*types.TypeParam]types.Type)
+	// Copy any substitutions from an outer generic type.
+	for k, v := range existingSubstitutions {
+		newSubstitutions[k] = v
+	}
+
+	typeParams := named.Origin().TypeParams()
+	typeArgs := named.TypeArgs()
+	for i := 0; i < typeParams.Len(); i++ {
+		newSubstitutions[typeParams.At(i)] = typeArgs.At(i)
+	}
+
+	// 5. Generate the schema for the underlying type of the generic definition (e.g., the struct of Page[T]),
+	// passing the substitution map so that 'T' gets replaced by 'Book'.
+	underlyingSchema := g.goTypeToSchemaRefInternal(named.Origin().Underlying(), newSubstitutions)
+	g.openAPISpec.Components.Schemas[uniqueName] = underlyingSchema
+
+	return schemaRef
 }

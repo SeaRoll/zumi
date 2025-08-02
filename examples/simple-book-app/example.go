@@ -140,16 +140,17 @@ func main() {
 	server.AddHandler("GET /api/v1/books", func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Ctx context.Context `ctx:"context"`
+			database.PageRequest
 		}
 		if err := server.ParseRequest(r, &req); err != nil {
 			server.WriteError(w, http.StatusBadRequest, fmt.Sprintf("failed to parse request: %v", err))
 			return
 		}
 
-		var books []Book
+		var books database.Page[Book]
 		if err := db.WithTX(req.Ctx, func(tx database.DBTX) error {
 			var err error
-			books, err = database.SelectRows[Book](req.Ctx, tx, "SELECT * FROM books")
+			books, err = database.SelectRowsPageable[Book](req.Ctx, tx, "SELECT * FROM books", req.PageRequest)
 			if err != nil {
 				return fmt.Errorf("failed to retrieve all books: %w", err)
 			}
