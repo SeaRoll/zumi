@@ -252,6 +252,9 @@ func (g *schemaGenerator) processAddHandler(call *ast.CallExpr, comments []*ast.
 		}
 	}
 
+	// description without tags
+	description = strings.TrimSpace(strings.Split(description, "gen:tag=")[0])
+
 	reqStruct, responses := g.findRequestAndResponseTypes(handlerFunc)
 
 	op := &openapi3.Operation{

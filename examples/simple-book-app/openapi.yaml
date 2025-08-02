@@ -27,10 +27,7 @@ openapi: 3.0.0
 paths:
     /api/v1/books:
         get:
-            description: |
-                Get all books handler
-
-                gen:tag=Books
+            description: Get all books handler
             operationId: get_api_v1_books
             responses:
                 "200":
@@ -59,10 +56,7 @@ paths:
             tags:
                 - Books
         post:
-            description: |
-                Add a book handler
-
-                gen:tag=Books
+            description: Add a book handler
             operationId: post_api_v1_books
             requestBody:
                 content:
@@ -94,12 +88,10 @@ paths:
                 - Books
     /api/v1/books/{id}:
         get:
-            description: |
+            description: |-
                 Get a book by ID handler
 
                 This handler retrieves a book by its ID from the path parameter.
-
-                gen:tag=Books
             operationId: get_api_v1_books_id
             parameters:
                 - in: path
