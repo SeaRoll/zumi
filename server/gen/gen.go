@@ -25,6 +25,8 @@ import (
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"golang.org/x/tools/go/packages"
 	"gopkg.in/yaml.v3"
 )
@@ -569,8 +571,9 @@ func (g *schemaGenerator) generateTypeName(typ types.Type) string {
 	if ptr, ok := typ.(*types.Pointer); ok {
 		return g.generateTypeName(ptr.Elem())
 	}
+
 	// For basic types, capitalize their name. e.g., "string" -> "String"
-	return strings.Title(typ.Underlying().String())
+	return cases.Title(language.English).String(typ.Underlying().String())
 }
 
 // handleInstantiatedGeneric generates a schema for an instantiated generic type like Page[Book].
