@@ -10,6 +10,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"go/ast"
@@ -43,17 +44,21 @@ var (
 
 func main() {
 	flag.Parse()
+
 	pattern := "./..."
 
 	log.Printf("Generating OpenAPI spec for package(s) matching: %s\n", pattern)
+
 	yamlBytes, err := Generate(pattern)
 	if err != nil {
 		log.Fatalf("Error generating OpenAPI spec: %v", err)
 	}
-	err = os.WriteFile(*output, yamlBytes, 0644)
+
+	err = os.WriteFile(*output, yamlBytes, 0o644) //nolint:gosec
 	if err != nil {
 		log.Fatalf("Error writing to output file %s: %v", *output, err)
 	}
+
 	log.Printf("Successfully wrote OpenAPI spec to %s\n", *output)
 }
 
@@ -90,22 +95,24 @@ type schemaGenerator struct {
 
 // Generate scans package(s) and creates an OpenAPI spec.
 func Generate(pattern string) ([]byte, error) {
-
 	fset := token.NewFileSet()
 	cfg := &packages.Config{
 		Fset:  fset,
 		Mode:  packages.NeedName | packages.NeedFiles | packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo,
 		Tests: false,
 	}
+
 	pkgs, err := packages.Load(cfg, pattern)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load packages: %w", err)
 	}
+
 	if packages.PrintErrors(pkgs) > 0 {
-		return nil, fmt.Errorf("packages contain errors")
+		return nil, errors.New("packages contain errors")
 	}
 
 	var serverList []*openapi3.Server
+
 	if *servers != "" {
 		for url := range strings.SplitSeq(*servers, ",") {
 			serverList = append(serverList, &openapi3.Server{
@@ -156,6 +163,7 @@ func Generate(pattern string) ([]byte, error) {
 					gen.processAddHandler(call, file.Comments)
 					gen.handlersFound++
 				}
+
 				return true
 			})
 		}
@@ -166,20 +174,26 @@ func Generate(pattern string) ([]byte, error) {
 	}
 
 	// Add used tags to the spec.
-	var sortedTags []string
+	sortedTags := []string{}
 	for tagName := range gen.usedTags {
 		sortedTags = append(sortedTags, tagName)
 	}
+
 	sort.Strings(sortedTags)
 
 	for _, tagName := range sortedTags {
 		gen.openAPISpec.Tags = append(gen.openAPISpec.Tags, &openapi3.Tag{
 			Name:        tagName,
-			Description: fmt.Sprintf("Operations related to %s", tagName),
+			Description: "Operations related to " + tagName,
 		})
 	}
 
-	return yaml.Marshal(gen.openAPISpec)
+	result, err := yaml.Marshal(gen.openAPISpec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal OpenAPI spec: %w", err)
+	}
+
+	return result, nil
 }
 
 // isServerAddHandlerCall uses type information to robustly check if a call expression
@@ -215,11 +229,14 @@ func (g *schemaGenerator) processAddHandler(call *ast.CallExpr, comments []*ast.
 	if !ok || arg0.Kind != token.STRING {
 		return
 	}
+
 	routeStr, _ := strconv.Unquote(arg0.Value)
+
 	parts := strings.Fields(routeStr)
 	if len(parts) != 2 {
 		return
 	}
+
 	method, path := parts[0], parts[1]
 
 	// Second argument: the handler function literal.
@@ -230,6 +247,7 @@ func (g *schemaGenerator) processAddHandler(call *ast.CallExpr, comments []*ast.
 
 	// Find the comment group that immediately precedes the AddHandler call.
 	description := ""
+
 	callLine := g.fset.Position(call.Pos()).Line
 	for _, cg := range comments {
 		// Check if the comment group ends on the line just before the call starts.
@@ -247,6 +265,7 @@ func (g *schemaGenerator) processAddHandler(call *ast.CallExpr, comments []*ast.
 
 	// extract a comment line that starts with `gen:tag=`
 	tag := "default"
+
 	if strings.Contains(description, "gen:tag=") {
 		tagParts := strings.Split(description, "gen:tag=")
 		if len(tagParts) > 1 {
@@ -292,10 +311,12 @@ func (g *schemaGenerator) processAddHandler(call *ast.CallExpr, comments []*ast.
 		}
 
 		response := openapi3.NewResponse().WithDescription(respDescription)
+
 		if respType != nil {
 			respSchemaRef := g.goTypeToSchemaRef(respType)
 			response = response.WithJSONSchemaRef(respSchemaRef)
 		}
+
 		op.AddResponse(statusCode, response)
 	}
 
@@ -305,6 +326,7 @@ func (g *schemaGenerator) processAddHandler(call *ast.CallExpr, comments []*ast.
 // findRequestAndResponseTypes inspects a function's body to find request and response types.
 func (g *schemaGenerator) findRequestAndResponseTypes(fn *ast.FuncLit) (*types.Struct, map[int]types.Type) {
 	var reqStruct *types.Struct
+
 	responses := make(map[int]types.Type)
 
 	if fn.Body == nil {
@@ -322,7 +344,7 @@ func (g *schemaGenerator) findRequestAndResponseTypes(fn *ast.FuncLit) (*types.S
 			}
 		}
 
-		if call, ok := n.(*ast.CallExpr); ok {
+		if call, ok := n.(*ast.CallExpr); ok { //nolint:nestif
 			sel, ok := call.Fun.(*ast.SelectorExpr)
 			if !ok {
 				return true
@@ -353,11 +375,14 @@ func (g *schemaGenerator) findRequestAndResponseTypes(fn *ast.FuncLit) (*types.S
 				if isWriteJSON && len(call.Args) > 2 {
 					respType = g.typesInfo.TypeOf(call.Args[2])
 				}
+
 				responses[statusCode] = respType
 			}
 		}
+
 		return true
 	})
+
 	return reqStruct, responses
 }
 
@@ -378,19 +403,23 @@ func (g *schemaGenerator) resolveStatusCode(arg ast.Expr) (int, bool) {
 			}
 		}
 	}
+
 	return 0, false
 }
 
 // extractRequestInfo processes a request struct to find parameters and a request body.
 func (g *schemaGenerator) extractRequestInfo(reqStruct *types.Struct) (openapi3.Parameters, *openapi3.RequestBodyRef) {
 	params := openapi3.NewParameters()
+
 	var requestBody *openapi3.RequestBodyRef
 
 	var processRequestStruct func(s *types.Struct)
+
 	processRequestStruct = func(s *types.Struct) {
 		if s == nil {
 			return
 		}
+
 		for i := 0; i < s.NumFields(); i++ {
 			field := s.Field(i)
 			st := reflect.StructTag(s.Tag(i))
@@ -402,11 +431,14 @@ func (g *schemaGenerator) extractRequestInfo(reqStruct *types.Struct) (openapi3.
 				} else {
 					embeddedStruct, _ = field.Type().Underlying().(*types.Struct)
 				}
+
 				processRequestStruct(embeddedStruct)
+
 				continue
 			}
 
 			isRequired := false
+
 			if validateTag := st.Get("validate"); validateTag != "" {
 				if slices.Contains(strings.Split(validateTag, ","), "required") {
 					isRequired = true
@@ -446,6 +478,7 @@ func (g *schemaGenerator) extractRequestInfo(reqStruct *types.Struct) (openapi3.
 	}
 
 	processRequestStruct(reqStruct)
+
 	return params, requestBody
 }
 
@@ -480,6 +513,7 @@ func (g *schemaGenerator) goTypeToSchemaRefInternal(typ types.Type, substitution
 		if customSchema, exists := customTypeSchemas[typeName]; exists {
 			return &openapi3.SchemaRef{Value: customSchema}
 		}
+
 		if ref, exists := g.generatedTypes[typeName]; exists {
 			return ref
 		}
@@ -488,6 +522,7 @@ func (g *schemaGenerator) goTypeToSchemaRefInternal(typ types.Type, substitution
 		g.generatedTypes[typeName] = schemaRef // Cache before recursion to handle recursive types.
 		underlyingSchema := g.goTypeToSchemaRefInternal(named.Underlying(), substitutions)
 		g.openAPISpec.Components.Schemas[typeName] = underlyingSchema
+
 		return schemaRef
 	}
 
@@ -497,9 +532,10 @@ func (g *schemaGenerator) goTypeToSchemaRefInternal(typ types.Type, substitution
 
 	// For unnamed types, generate the schema directly.
 	schema := openapi3.NewSchema()
+
 	switch t := typ.Underlying().(type) {
 	case *types.Basic:
-		switch t.Kind() {
+		switch t.Kind() { //nolint:exhaustive
 		case types.String:
 			schema.Type = &openapi3.Types{"string"}
 		case types.Int, types.Int8, types.Int16, types.Int32, types.Int64,
@@ -513,6 +549,7 @@ func (g *schemaGenerator) goTypeToSchemaRefInternal(typ types.Type, substitution
 	case *types.Struct:
 		schema.Type = &openapi3.Types{"object"}
 		schema.Properties = make(map[string]*openapi3.SchemaRef)
+
 		var requiredFields []string
 
 		for i := 0; i < t.NumFields(); i++ {
@@ -520,17 +557,21 @@ func (g *schemaGenerator) goTypeToSchemaRefInternal(typ types.Type, substitution
 			if !field.Exported() {
 				continue
 			}
+
 			jsonTag := reflect.StructTag(t.Tag(i)).Get("json")
+
 			jsonName := strings.Split(jsonTag, ",")[0]
 			if jsonName == "" || jsonName == "-" {
 				continue
 			}
+
 			if _, isPointer := field.Type().(*types.Pointer); !isPointer {
 				requiredFields = append(requiredFields, jsonName)
 			}
 			// Recursively generate the schema for the field type, passing substitutions.
 			schema.Properties[jsonName] = g.goTypeToSchemaRefInternal(field.Type(), substitutions)
 		}
+
 		if len(requiredFields) > 0 {
 			schema.Required = requiredFields
 		}
@@ -550,24 +591,29 @@ func generateOperationID(method, path string) string {
 	path = strings.ReplaceAll(path, "/", " ")
 	path = strings.ReplaceAll(path, "{", "")
 	path = strings.ReplaceAll(path, "}", "")
+
 	return strings.ToLower(method) + "_" + strings.Join(strings.Fields(path), "_")
 }
 
 // generateTypeName creates a descriptive name for a type, handling generics recursively.
-// e.g., Page[Book] -> "PageOfBook"
+// e.g., Page[Book] -> "PageOfBook".
 func (g *schemaGenerator) generateTypeName(typ types.Type) string {
 	if named, ok := typ.(*types.Named); ok {
 		baseName := named.Obj().Name()
 		if named.TypeArgs().Len() > 0 {
 			var argNames []string
+
 			typeArgs := named.TypeArgs()
 			for i := 0; i < typeArgs.Len(); i++ {
 				argNames = append(argNames, g.generateTypeName(typeArgs.At(i)))
 			}
+
 			return baseName + "Of" + strings.Join(argNames, "")
 		}
+
 		return baseName
 	}
+
 	if ptr, ok := typ.(*types.Pointer); ok {
 		return g.generateTypeName(ptr.Elem())
 	}
@@ -599,6 +645,7 @@ func (g *schemaGenerator) handleInstantiatedGeneric(named *types.Named, existing
 	}
 
 	typeParams := named.Origin().TypeParams()
+
 	typeArgs := named.TypeArgs()
 	for i := 0; i < typeParams.Len(); i++ {
 		newSubstitutions[typeParams.At(i)] = typeArgs.At(i)

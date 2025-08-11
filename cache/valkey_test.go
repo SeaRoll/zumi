@@ -71,7 +71,8 @@ func TestSetGetValues(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.key, func(t *testing.T) {
-			if err := c.Set(ctx, tt.key, tt.value, tt.timeout); err != nil {
+			err := c.Set(ctx, tt.key, tt.value, tt.timeout)
+			if err != nil {
 				t.Fatalf("Failed to set value: %v", err)
 			}
 
@@ -79,7 +80,7 @@ func TestSetGetValues(t *testing.T) {
 			time.Sleep(tt.waitFor)
 
 			var value any
-			err := c.Get(ctx, tt.key, &value)
+			err = c.Get(ctx, tt.key, &value)
 			if tt.expectedError {
 				assert.Error(t, err, "Expected error when retrieving value after timeout")
 				assert.ErrorIs(t, err, ErrNil, "Expected valkey.Nil error when retrieving value after timeout")
@@ -141,11 +142,12 @@ func TestWrapped(t *testing.T) {
 	timesCalled := 0
 	var anyData string
 	for range 2 {
-		if err := c.Wrapped(ctx, key, &anyData, func() error {
+		err := c.Wrapped(ctx, key, &anyData, func() error {
 			timesCalled++
 			anyData = "fallbackValue"
 			return nil
-		}, -1); err != nil {
+		}, -1)
+		if err != nil {
 			t.Fatalf("Unexpected error in wrapped function: %v", err)
 		}
 	}
@@ -155,11 +157,12 @@ func TestWrapped(t *testing.T) {
 	key = uuid.NewString()
 	timesCalled = 0
 	for range 2 {
-		if err := c.Wrapped(ctx, key, &anyData, func() error {
+		err := c.Wrapped(ctx, key, &anyData, func() error {
 			timesCalled++
 			anyData = "fallbackValue"
 			return nil
-		}); err != nil {
+		})
+		if err != nil {
 			t.Fatalf("Unexpected error in wrapped function: %v", err)
 		}
 	}

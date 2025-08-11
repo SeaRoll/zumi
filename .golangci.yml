@@ -1,0 +1,107 @@
+version: "2"
+linters:
+  enable:
+  - govet
+  - asciicheck
+  - bodyclose
+  - copyloopvar
+  - durationcheck
+  - exhaustive
+  - forcetypeassert
+  - goconst
+  - gocritic
+  - gosec
+  - importas
+  - makezero
+  - exptostd
+  - iface
+  - misspell
+  - nakedret
+  - nestif
+  - nilerr
+  - noctx
+  - nolintlint
+  - prealloc
+  - predeclared
+  - promlinter
+  - musttag
+  - revive
+  - rowserrcheck
+  - sqlclosecheck
+  - staticcheck
+  - unconvert
+  - unparam
+  - wastedassign
+  - errorlint
+  - wrapcheck
+  - wsl_v5
+  - fatcontext
+  - godot
+  - whitespace
+  - noinlineerr
+  - perfsprint
+  - usestdlibvars
+  disable:
+  - cyclop
+  - depguard
+  - dogsled
+  - dupl
+  - err113
+  - contextcheck
+  - errname
+  - forbidigo
+  - gochecknoglobals
+  - gochecknoinits
+  - gocognit
+  - gocyclo
+  - godox
+  - goheader
+  - gomoddirectives
+  - gomodguard
+  - goprintffuncname
+  - lll
+  - nlreturn
+  - paralleltest
+  - tagliatelle
+  - testpackage
+  - thelper
+  - tparallel
+  - varnamelen
+  - wsl
+  exclusions:
+    generated: lax
+    presets:
+    - comments
+    - common-false-positives
+    - legacy
+    - std-error-handling
+    paths:
+    - cmd/
+    - (.+)_test\.go
+    - (.+)_mock\.go
+    - mock_(.+)\.go
+    - third_party$
+    - builtin$
+    - examples$
+  settings:
+    musttag:
+      functions:
+      - name: (*github.com/labstack/echo/v4.context).JSON
+        tag: json
+        arg-pos: 1
+    revive:
+      rules:
+      - name: function-result-limit
+        severity: error
+        disabled: false
+        exclude: [ "" ]
+        arguments: [ 2 ]
+issues:
+  fix: true
+formatters:
+  enable:
+  - gofmt
+  - gofumpt
+  - goimports
+  exclusions:
+    generated: lax

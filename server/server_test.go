@@ -29,7 +29,8 @@ func await(t *testing.T, fn func() error, timeouts ...time.Duration) {
 		case <-timeout:
 			t.Fatal("Timeout waiting for condition")
 		case <-ticker.C:
-			if err := fn(); err == nil {
+			err := fn()
+			if err == nil {
 				return
 			}
 		}
@@ -94,7 +95,8 @@ func TestServer(t *testing.T) {
 		var req struct {
 			Message *string `query:"message"`
 		}
-		if err := ParseRequest(r, &req); err != nil {
+		err := ParseRequest(r, &req)
+		if err != nil {
 			WriteError(w, http.StatusBadRequest, "Invalid request format")
 			return
 		}
@@ -116,7 +118,8 @@ func TestServer(t *testing.T) {
 				Message string `json:"message" validate:"required"`
 			} `body:"json"`
 		}
-		if err := ParseRequest(r, &req); err != nil {
+		err := ParseRequest(r, &req)
+		if err != nil {
 			WriteError(w, http.StatusBadRequest, "Invalid request format")
 			return
 		}
@@ -128,7 +131,8 @@ func TestServer(t *testing.T) {
 
 	// perform http request to the server
 	go func() {
-		if err := StartServer(ctx, addr); err != nil {
+		err := StartServer(ctx, addr)
+		if err != nil {
 			t.Errorf("Failed to start server: %v", err)
 		}
 	}()
@@ -150,7 +154,8 @@ func TestServer(t *testing.T) {
 		var res struct {
 			HelloMessage string `json:"helloMessage"`
 		}
-		if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		err = json.NewDecoder(resp.Body).Decode(&res)
+		if err != nil {
 			t.Fatalf("Failed to decode response: %v", err)
 		}
 
@@ -174,7 +179,8 @@ func TestServer(t *testing.T) {
 		var res struct {
 			HelloMessage string `json:"helloMessage"`
 		}
-		if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		err = json.NewDecoder(resp.Body).Decode(&res)
+		if err != nil {
 			t.Fatalf("Failed to decode response: %v", err)
 		}
 
@@ -205,7 +211,8 @@ func TestServer(t *testing.T) {
 		var res struct {
 			HelloMessage string `json:"helloMessage"`
 		}
-		if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		err = json.NewDecoder(resp.Body).Decode(&res)
+		if err != nil {
 			t.Fatalf("Failed to decode response: %v", err)
 		}
 		assert.Equal(t, "Hello, Yohan - hello!", res.HelloMessage)

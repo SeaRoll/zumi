@@ -34,13 +34,15 @@ func accesslog(next http.Handler, log *slog.Logger) http.Handler {
 func recovery(next http.Handler, log *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		wr := responseRecorder{ResponseWriter: w}
+
 		defer func() {
 			err := recover()
 			if err == nil {
 				return
 			}
 
-			if err, ok := err.(error); ok && errors.Is(err, http.ErrAbortHandler) {
+			errParsed, ok := err.(error)
+			if ok && errors.Is(errParsed, http.ErrAbortHandler) {
 				// Handle the abort gracefully
 				return
 			}
@@ -64,6 +66,7 @@ func recovery(next http.Handler, log *slog.Logger) http.Handler {
 			// send error response
 			http.Error(w, fmt.Sprint(err), http.StatusInternalServerError)
 		}()
+
 		next.ServeHTTP(&wr, r)
 	})
 }
@@ -84,7 +87,13 @@ func (re *responseRecorder) Header() http.Header {
 // Write implements the [http.ResponseWriter] interface.
 func (re *responseRecorder) Write(b []byte) (int, error) {
 	re.numBytes += len(b)
-	return re.ResponseWriter.Write(b)
+
+	writtenLen, err := re.ResponseWriter.Write(b)
+	if err != nil {
+		return 0, fmt.Errorf("failed to write response: %w", err)
+	}
+
+	return writtenLen, nil
 }
 
 // WriteHeader implements the [http.ResponseWriter] interface.

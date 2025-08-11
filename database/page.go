@@ -35,8 +35,9 @@ type Page[T any] struct {
 // The PageRequest parameter specifies the pagination details such as page number and size.
 //
 // Note: make sure the query does not have a `;` at the end, as this function appends LIMIT and OFFSET for pagination.
-func SelectRowsPageable[T any](ctx context.Context, dbtx DBTX, query string, pageRequest PageRequest, args ...any) (Page[T], error) {
+func SelectRowsPageable[T any](ctx context.Context, dbtx DBTX, pageRequest PageRequest, query string, args ...any) (Page[T], error) {
 	var page Page[T]
+
 	page.Pageable = pageRequest
 
 	// Calculate offset and limit
@@ -44,7 +45,7 @@ func SelectRowsPageable[T any](ctx context.Context, dbtx DBTX, query string, pag
 	limit := pageRequest.Size
 
 	// Add Sorting if provided
-	if len(pageRequest.Sort) > 0 {
+	if len(pageRequest.Sort) > 0 { //nolint:nestif
 		for i, sort := range pageRequest.Sort {
 			if sort == "" {
 				continue
@@ -60,9 +61,9 @@ func SelectRowsPageable[T any](ctx context.Context, dbtx DBTX, query string, pag
 				}
 			} else {
 				if i == 0 {
-					query += fmt.Sprintf(" ORDER BY %s", sort)
+					query += " ORDER BY " + sort
 				} else {
-					query += fmt.Sprintf(", %s", sort)
+					query += ", " + sort
 				}
 			}
 		}
@@ -70,6 +71,7 @@ func SelectRowsPageable[T any](ctx context.Context, dbtx DBTX, query string, pag
 
 	// Modify the query to include pagination
 	query += " LIMIT $1 OFFSET $2"
+
 	args = append(args, limit, offset)
 
 	slog.Info("Executing paginated query",
@@ -98,8 +100,11 @@ func SelectRowsPageable[T any](ctx context.Context, dbtx DBTX, query string, pag
 
 	// Get total elements and pages
 	countQuery := "SELECT COUNT(*) FROM (" + query + ") AS count_query"
+
 	var totalElements int64
-	if err := dbtx.QueryRow(ctx, countQuery, args...).Scan(&totalElements); err != nil {
+
+	err = dbtx.QueryRow(ctx, countQuery, args...).Scan(&totalElements)
+	if err != nil {
 		return page, fmt.Errorf("failed to get total elements: %w", err)
 	}
 

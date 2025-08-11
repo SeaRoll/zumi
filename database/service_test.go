@@ -38,15 +38,16 @@ func TestDatabaseExecSelectOneAndMultiple(t *testing.T) {
 	db := setupDatabase(ctx, t)
 
 	t.Run("Insert and Select One", func(t *testing.T) {
-		if err := db.WithTX(ctx, func(tx DBTX) error {
+		err := db.WithTX(ctx, func(tx DBTX) error {
 			bookTitle := uuid.NewString()
-			if err := ExecQuery(
+			err := ExecQuery(
 				ctx,
 				tx,
 				"INSERT INTO books (title, description) VALUES ($1, $2)",
 				bookTitle,
 				"This is a test book description",
-			); err != nil {
+			)
+			if err != nil {
 				return err
 			}
 
@@ -72,7 +73,8 @@ func TestDatabaseExecSelectOneAndMultiple(t *testing.T) {
 			assert.Contains(t, books, book)
 
 			return nil
-		}); err != nil {
+		})
+		if err != nil {
 			t.Fatalf("Failed to insert and select one: %v", err)
 		}
 	})

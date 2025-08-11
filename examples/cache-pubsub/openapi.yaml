@@ -14,15 +14,17 @@ components:
                 - status
             type: object
 info:
-    description: Zumi API for events with pubsub
+    description: |-
+        Zumi API for events with pubsub
+
+        We can also add spacing here
     title: Zumi Message API
     version: 1.0.0
 openapi: 3.0.0
 paths:
     /publish:
         post:
-            description: |
-                Endpoint to publish messages to the channel
+            description: Endpoint to publish messages to the channel
             operationId: post_publish
             requestBody:
                 content:
@@ -57,10 +59,10 @@ paths:
                     description: ""
             summary: /publish
             tags:
-                - PUBLISH
+                - default
 servers:
     - description: Server URL
       url: http://localhost:8080
 tags:
-    - description: Operations related to PUBLISH
-      name: PUBLISH
+    - description: Operations related to default
+      name: default

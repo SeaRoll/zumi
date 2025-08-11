@@ -72,7 +72,7 @@ func main() {
 	}
 
 	go func() {
-		if err := mq.Consume(queue.ConsumerConfig{
+		err := mq.Consume(queue.ConsumerConfig{
 			ConsumerName: "api",
 			Subject:      "events.books",
 			FetchLimit:   1,
@@ -80,7 +80,8 @@ func main() {
 				successMsgs := []int{}
 				for _, event := range events {
 					var book Book
-					if err := json.Unmarshal(event.Payload, &book); err != nil {
+					err := json.Unmarshal(event.Payload, &book)
+					if err != nil {
 						slog.Error("Failed to unmarshal book event", "error", err)
 						continue
 					}
@@ -89,18 +90,22 @@ func main() {
 				}
 				return successMsgs
 			},
-		}); err != nil {
+		})
+		if err != nil {
 			slog.Error("Failed to consume messages", "error", err)
 		}
 	}()
 
 	// Do some operations on cache
-	if err := cache.Set(ctx, "something", "hello", 5*time.Minute); err != nil {
+	err = cache.Set(ctx, "something", "hello", 5*time.Minute)
+	if err != nil {
 		panic(fmt.Errorf("failed to insert to cache: %w", err))
 	}
 
 	var cacheValue string
-	if err := cache.Get(ctx, "something", &cacheValue); err != nil {
+
+	err = cache.Get(ctx, "something", &cacheValue)
+	if err != nil {
 		panic(fmt.Errorf("failed to get to cache: %w", err))
 	}
 
@@ -118,7 +123,9 @@ func main() {
 	server.AddHandler("GET /docs", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write([]byte(embedIndexHTML)); err != nil {
+
+		_, err := w.Write([]byte(embedIndexHTML))
+		if err != nil {
 			http.Error(w, fmt.Sprintf("failed to write index.html: %v", err), http.StatusInternalServerError)
 			return
 		}
@@ -128,7 +135,9 @@ func main() {
 	server.AddHandler("GET /openapi.yaml", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/x-yaml")
 		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write([]byte(embedOpenAPI)); err != nil {
+
+		_, err := w.Write([]byte(embedOpenAPI))
+		if err != nil {
 			http.Error(w, fmt.Sprintf("failed to write openapi.yaml: %v", err), http.StatusInternalServerError)
 			return
 		}
@@ -142,20 +151,26 @@ func main() {
 			Ctx context.Context `ctx:"context"`
 			database.PageRequest
 		}
-		if err := server.ParseRequest(r, &req); err != nil {
+
+		err := server.ParseRequest(r, &req)
+		if err != nil {
 			server.WriteError(w, http.StatusBadRequest, fmt.Sprintf("failed to parse request: %v", err))
 			return
 		}
 
 		var books database.Page[Book]
-		if err := db.WithTX(req.Ctx, func(tx database.DBTX) error {
+
+		err = db.WithTX(req.Ctx, func(tx database.DBTX) error {
 			var err error
-			books, err = database.SelectRowsPageable[Book](req.Ctx, tx, "SELECT * FROM books", req.PageRequest)
+
+			books, err = database.SelectRowsPageable[Book](req.Ctx, tx, req.PageRequest, "SELECT * FROM books")
 			if err != nil {
 				return fmt.Errorf("failed to retrieve all books: %w", err)
 			}
+
 			return nil
-		}); err != nil {
+		})
+		if err != nil {
 			server.WriteError(w, http.StatusInternalServerError, fmt.Sprintf("failed to retrieve books: %v", err))
 			return
 		}
@@ -173,20 +188,26 @@ func main() {
 			Ctx context.Context `ctx:"context"`
 			ID  int             `path:"id"`
 		}
-		if err := server.ParseRequest(r, &req); err != nil {
+
+		err := server.ParseRequest(r, &req)
+		if err != nil {
 			server.WriteError(w, http.StatusBadRequest, fmt.Sprintf("failed to parse request: %v", err))
 			return
 		}
 
 		var book Book
-		if err := db.WithTX(req.Ctx, func(tx database.DBTX) error {
+
+		err = db.WithTX(req.Ctx, func(tx database.DBTX) error {
 			var err error
+
 			book, err = database.SelectRow[Book](req.Ctx, tx, "SELECT * FROM books WHERE id = $1", req.ID)
 			if err != nil {
 				return fmt.Errorf("failed to retrieve book: %w", err)
 			}
+
 			return nil
-		}); err != nil {
+		})
+		if err != nil {
 			server.WriteError(w, http.StatusInternalServerError, fmt.Sprintf("failed to retrieve book: %v", err))
 			return
 		}
@@ -202,23 +223,28 @@ func main() {
 			Ctx  context.Context `ctx:"context"`
 			Book Book            `body:"json"`
 		}
-		if err := server.ParseRequest(r, &req); err != nil {
+
+		err := server.ParseRequest(r, &req)
+		if err != nil {
 			server.WriteError(w, http.StatusBadRequest, fmt.Sprintf("failed to parse request: %v", err))
 			return
 		}
 
-		if err := db.WithTX(req.Ctx, func(tx database.DBTX) error {
-			if err := database.ExecQuery(
+		err = db.WithTX(req.Ctx, func(tx database.DBTX) error {
+			err := database.ExecQuery(
 				ctx,
 				tx,
 				"INSERT INTO books (title, description) VALUES ($1, $2)",
 				req.Book.Title,
 				req.Book.Description,
-			); err != nil {
+			)
+			if err != nil {
 				return fmt.Errorf("failed to insert book: %w", err)
 			}
+
 			return nil
-		}); err != nil {
+		})
+		if err != nil {
 			server.WriteError(w, http.StatusInternalServerError, fmt.Sprintf("failed to insert book: %v", err))
 			return
 		}
@@ -229,7 +255,9 @@ func main() {
 			server.WriteError(w, http.StatusInternalServerError, fmt.Sprintf("failed to marshal book event: %v", err))
 			return
 		}
-		if err := mq.Publish("events.books", bookEvent); err != nil {
+
+		err = mq.Publish("events.books", bookEvent)
+		if err != nil {
 			server.WriteError(w, http.StatusInternalServerError, fmt.Sprintf("failed to publish book event: %v", err))
 			return
 		}
@@ -239,8 +267,9 @@ func main() {
 
 	// Start the server
 	addr := ":8080"
-	if err := server.StartServer(ctx, addr); err != nil {
+
+	err = server.StartServer(ctx, addr)
+	if err != nil {
 		slog.Error("Failed to start server", "error", err)
-		return
 	}
 }

@@ -26,7 +26,7 @@ func newServer() *server {
 }
 
 // Starts a running server by the given address.
-// Stops the server when it receives ctx.Done()
+// Stops the server when it receives ctx.Done().
 func (s *server) start(ctx context.Context, addr string) error {
 	fmt.Println(banner)
 	slog.Info("starting server", "address", addr)
@@ -42,14 +42,17 @@ func (s *server) start(ctx context.Context, addr string) error {
 	handler = accesslog(handler, slog.Default())
 
 	server := &http.Server{
-		Addr:    addr,
-		Handler: handler,
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 15 * time.Second,
 	}
 
 	// Create a channel to listen for errors from the server
 	errChan := make(chan error, 1)
+
 	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		err := server.ListenAndServe()
+		if err != nil && err != http.ErrServerClosed {
 			errChan <- err
 		}
 	}()
@@ -60,11 +63,14 @@ func (s *server) start(ctx context.Context, addr string) error {
 		if err != nil {
 			return fmt.Errorf("server error: %w", err)
 		}
+
 		return nil
 	case <-ctx.Done():
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer shutdownCancel()
-		if err := server.Shutdown(shutdownCtx); err != nil {
+
+		err := server.Shutdown(shutdownCtx)
+		if err != nil {
 			return fmt.Errorf("server shutdown error: %w", err)
 		}
 	}
@@ -89,7 +95,9 @@ func (s *server) addHandler(path string, handler http.HandlerFunc) {
 func WriteJSON(w http.ResponseWriter, status int, data any) {
 	w.WriteHeader(status)
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(data); err != nil {
+
+	err := json.NewEncoder(w).Encode(data)
+	if err != nil {
 		WriteError(w, http.StatusInternalServerError, fmt.Sprintf("failed to write JSON response: %v", err))
 	}
 }
@@ -98,7 +106,9 @@ func WriteJSON(w http.ResponseWriter, status int, data any) {
 // This is a utility function to handle errors in a consistent way across your handlers.
 func WriteError(w http.ResponseWriter, status int, message string) {
 	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(map[string]string{"error": message}); err != nil {
+
+	err := json.NewEncoder(w).Encode(map[string]string{"error": message})
+	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to write error response: %v", err), http.StatusInternalServerError)
 	}
 }

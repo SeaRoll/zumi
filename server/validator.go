@@ -9,8 +9,8 @@ import (
 
 func ValidateStruct(i any) error {
 	v := validator.New()
-	err := v.Struct(i)
 
+	err := v.Struct(i)
 	if err == nil {
 		return nil
 	}
@@ -19,6 +19,7 @@ func ValidateStruct(i any) error {
 	if !errors.As(err, &verr) {
 		return fmt.Errorf("validation error: %w", err)
 	}
+
 	if len(verr) == 0 {
 		return nil
 	}

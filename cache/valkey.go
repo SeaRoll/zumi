@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync/atomic"
@@ -41,10 +42,14 @@ func NewCache(config CacheConfig) (Cache, error) {
 		config:     config,
 		isTeardown: atomic.Bool{},
 	}
-	if err := cc.connect(); err != nil {
+
+	err := cc.connect()
+	if err != nil {
 		return nil, fmt.Errorf("failed to connect to cache: %w", err)
 	}
+
 	cc.healthCheck()
+
 	return cc, nil
 }
 
@@ -52,6 +57,7 @@ func (c *cacheClient) getSentinelConfig() valkey.SentinelOption {
 	if c.config.SentinelConfig == nil {
 		return valkey.SentinelOption{}
 	}
+
 	return valkey.SentinelOption{
 		MasterSet: c.config.SentinelConfig.MasterSet,
 		Password:  c.config.SentinelConfig.Password,
@@ -69,7 +75,9 @@ func (c *cacheClient) connect() error {
 	}
 
 	client := valkeycompat.NewAdapter(valcli)
-	if err := client.Ping(context.Background()).Err(); err != nil {
+
+	err = client.Ping(context.Background()).Err()
+	if err != nil {
 		return fmt.Errorf("failed to ping cache: %w", err)
 	}
 
@@ -88,14 +96,18 @@ func (c *cacheClient) healthCheck() {
 				return
 			}
 
-			if err := c.client.Ping(context.Background()).Err(); err != nil {
+			err := c.client.Ping(context.Background()).Err()
+			if err != nil {
 				slog.Error("Cache is not healthy", "error", err)
-				if err := c.connect(); err != nil {
+
+				err := c.connect()
+				if err != nil {
 					slog.Error("Failed to reconnect to cache", "error", err)
 				} else {
 					slog.Info("Reconnected to cache")
 				}
 			}
+
 			time.Sleep(5 * time.Second)
 		}
 	}()
@@ -104,14 +116,19 @@ func (c *cacheClient) healthCheck() {
 // Publish publishes a message to a channel.
 func (c *cacheClient) Publish(ctx context.Context, channel string, message string) error {
 	if channel == "" {
-		return fmt.Errorf("channel cannot be empty")
+		return errors.New("channel cannot be empty")
 	}
 
 	if message == "" {
-		return fmt.Errorf("message cannot be empty")
+		return errors.New("message cannot be empty")
 	}
 
-	return c.client.Publish(ctx, channel, message).Err()
+	err := c.client.Publish(ctx, channel, message).Err()
+	if err != nil {
+		return fmt.Errorf("failed to publish message to channel %s: %w", channel, err)
+	}
+
+	return nil
 }
 
 // Subscribe listens to a channel and calls the callback function for each message received.
@@ -119,8 +136,10 @@ func (c *cacheClient) Publish(ctx context.Context, channel string, message strin
 func (c *cacheClient) Subscribe(channel string, callback func(msg string) error) error {
 	ctx := context.Background()
 	pubsub := c.client.Subscribe(ctx, channel)
+
 	defer func() {
-		if err := pubsub.Close(); err != nil {
+		err := pubsub.Close()
+		if err != nil {
 			slog.Error("Error closing pubsub", "error", err)
 		}
 	}()
@@ -132,6 +151,7 @@ func (c *cacheClient) Subscribe(channel string, callback func(msg string) error)
 		if err != nil {
 			slog.Error("Error receiving message", "error", err)
 			time.Sleep(1 * time.Second)
+
 			continue
 		}
 
@@ -139,12 +159,14 @@ func (c *cacheClient) Subscribe(channel string, callback func(msg string) error)
 			slog.Warn("Received message from unexpected channel", "expected", channel, "received", msg.Channel)
 			continue
 		}
+
 		if msg.Payload == "" {
 			slog.Warn("Received empty message")
 			continue
 		}
 
-		if err := callback(msg.Payload); err != nil {
+		err = callback(msg.Payload)
+		if err != nil {
 			slog.Error("Error processing message", "message", msg.Payload, "error", err)
 			continue
 		}
@@ -153,17 +175,32 @@ func (c *cacheClient) Subscribe(channel string, callback func(msg string) error)
 
 // Lock locks a key in the cache for a specified duration.
 func (c *cacheClient) Lock(ctx context.Context, key string, timeout time.Duration) (bool, error) {
-	return c.client.SetNX(ctx, key, "1", timeout).Result()
+	success, err := c.client.SetNX(ctx, key, "1", timeout).Result()
+	if err != nil {
+		return false, fmt.Errorf("failed to lock key %s: %w", key, err)
+	}
+
+	return success, nil
 }
 
 // Unlock unlocks a key in the cache.
 func (c *cacheClient) Unlock(ctx context.Context, key string) error {
-	return c.client.Del(ctx, key).Err()
+	err := c.client.Del(ctx, key).Err()
+	if err != nil {
+		return fmt.Errorf("failed to unlock key %s: %w", key, err)
+	}
+
+	return nil
 }
 
 // TTL returns the time to live of a key in the cache.
 func (c *cacheClient) TTL(ctx context.Context, key string) (time.Duration, error) {
-	return c.client.TTL(ctx, key).Result()
+	duration, err := c.client.TTL(ctx, key).Result()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get TTL for key %s: %w", key, err)
+	}
+
+	return duration, nil
 }
 
 // Disconnect forcefully disconnects the cache client.
@@ -193,13 +230,25 @@ func (c *cacheClient) Set(ctx context.Context, key string, value any, timeout ti
 	if err != nil {
 		return fmt.Errorf("failed to marshal value: %w", err)
 	}
+
 	jsonValueString := string(jsonValue)
-	return c.client.Set(ctx, key, jsonValueString, timeout).Err()
+
+	err = c.client.Set(ctx, key, jsonValueString, timeout).Err()
+	if err != nil {
+		return fmt.Errorf("failed to set value in cache: %w", err)
+	}
+
+	return nil
 }
 
 // IncrBy increments the value of a key in the cache by a specified amount.
 func (c *cacheClient) IncrBy(ctx context.Context, key string, increment int64) (int64, error) {
-	return c.client.IncrBy(ctx, key, increment).Result()
+	res, err := c.client.IncrBy(ctx, key, increment).Result()
+	if err != nil {
+		return 0, fmt.Errorf("failed to increment key %s by %d: %w", key, increment, err)
+	}
+
+	return res, nil
 }
 
 // Get retrieves a value from the cache by its key and unmarshals it into the provided value.
@@ -209,36 +258,47 @@ func (c *cacheClient) Get(ctx context.Context, key string, value any) error {
 		return fmt.Errorf("failed to get value from cache: %w", err)
 	}
 
-	if err := json.Unmarshal([]byte(result), value); err != nil {
+	err = json.Unmarshal([]byte(result), value)
+	if err != nil {
 		return fmt.Errorf("failed to unmarshal value: %w", err)
 	}
 
 	return nil
 }
 
-// GetWithResetTTL retrieves a value from the cache by its key, unmarshals it into the provided value,
+// GetWithResetTTL retrieves a value from the cache by its key, unmarshals it into the provided value,.
 func (c *cacheClient) GetWithResetTTL(ctx context.Context, key string, value any, ttl time.Duration) error {
-	if err := c.Get(ctx, key, value); err != nil {
+	err := c.Get(ctx, key, value)
+	if err != nil {
 		return fmt.Errorf("failed to get value from cache: %w", err)
 	}
-	if err := c.client.Expire(ctx, key, ttl).Err(); err != nil {
+
+	err = c.client.Expire(ctx, key, ttl).Err()
+	if err != nil {
 		return fmt.Errorf("failed to reset TTL: %w", err)
 	}
+
 	return nil
 }
 
-// Exists checks if a key exists
+// Exists checks if a key exists.
 func (c *cacheClient) Exists(ctx context.Context, key string) (bool, error) {
 	result, err := c.client.Exists(ctx, key).Result()
 	if err != nil {
 		return false, fmt.Errorf("failed to check if key exists: %w", err)
 	}
+
 	return result == 1, nil
 }
 
-// Delete removes a key from the cache
+// Delete removes a key from the cache.
 func (c *cacheClient) Delete(ctx context.Context, key string) error {
-	return c.client.Del(ctx, key).Err()
+	err := c.client.Del(ctx, key).Err()
+	if err != nil {
+		return fmt.Errorf("failed to delete key from cache: %w", err)
+	}
+
+	return nil
 }
 
 // Wrapped will attempt to get the value from the cache, if it doesn't exist it will call the fallbackFunc
@@ -250,11 +310,13 @@ func (c *cacheClient) Wrapped(ctx context.Context, key string, data any, fallbac
 		return fallbackFunc()
 	}
 
-	if err := c.Get(ctx, key, data); err == nil {
+	err := c.Get(ctx, key, data)
+	if err == nil {
 		return nil
 	}
 
-	if err := fallbackFunc(); err != nil {
+	err = fallbackFunc()
+	if err != nil {
 		return fmt.Errorf("fallback function failed: %w", err)
 	}
 
@@ -263,7 +325,8 @@ func (c *cacheClient) Wrapped(ctx context.Context, key string, data any, fallbac
 		to = timeout[0]
 	}
 
-	if err := c.Set(ctx, key, data, to); err != nil {
+	err = c.Set(ctx, key, data, to)
+	if err != nil {
 		return fmt.Errorf("failed to set value in cache: %w", err)
 	}
 

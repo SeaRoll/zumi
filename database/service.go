@@ -39,11 +39,13 @@ func NewDatabase(
 		isTeardown:    atomic.Bool{},
 	}
 
-	if err := d.connectAndMigratePool(ctx); err != nil {
+	err := d.connectAndMigratePool(ctx)
+	if err != nil {
 		return nil, fmt.Errorf("failed to connect and migrate pool: %w", err)
 	}
 
 	d.runReconnect()
+
 	return d, nil
 }
 
@@ -70,9 +72,12 @@ func (d *dbo) healthCheckPool() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := d.pool.Ping(ctx); err != nil {
+	err := d.pool.Ping(ctx)
+	if err != nil {
 		slog.Error("db is not healthy", "error", err)
-		if err := d.connectAndMigratePool(ctx); err != nil {
+
+		err := d.connectAndMigratePool(ctx)
+		if err != nil {
 			slog.Error("failed to reconnect to db", "error", err)
 		} else {
 			slog.Info("reconnected to db")
@@ -99,7 +104,8 @@ func (d *dbo) connectAndMigratePool(ctx context.Context) error {
 
 	dbo := stdlib.OpenDBFromPool(pool)
 
-	if err := migrate(dbo, d.migrations); err != nil {
+	err = migrate(dbo, d.migrations)
+	if err != nil {
 		return fmt.Errorf("failed to run database migrations: %w", err)
 	}
 
@@ -112,10 +118,14 @@ func (d *dbo) connectAndMigratePool(ctx context.Context) error {
 func migrate(db *sql.DB, migrations fs.FS) error {
 	// setup database connection
 	goose.SetBaseFS(migrations)
-	if err := goose.SetDialect("postgres"); err != nil {
+
+	err := goose.SetDialect("postgres")
+	if err != nil {
 		return fmt.Errorf("failed to set goose dialect: %w", err)
 	}
-	if err := goose.Up(db, "migrations"); err != nil {
+
+	err = goose.Up(db, "migrations")
+	if err != nil {
 		return fmt.Errorf("failed to run migrations: %w", err)
 	}
 
@@ -135,6 +145,7 @@ func (d *dbo) Disconnect(noTeardown ...bool) {
 	if len(noTeardown) == 0 || !noTeardown[0] {
 		d.isTeardown.Store(true) // Set teardown flag to true
 	}
+
 	d.pool.Close()
 	slog.Info("Database connection pool closed")
 }
@@ -202,11 +213,13 @@ func (d *dbo) runTransactionWithOpts(ctx context.Context, fn func(tx DBTX) error
 		_ = tx.Rollback(ctx)
 	}()
 
-	if err := fn(tx); err != nil {
+	err = fn(tx)
+	if err != nil {
 		return fmt.Errorf("transaction function failed: %w", err)
 	}
 
-	if err := tx.Commit(ctx); err != nil {
+	err = tx.Commit(ctx)
+	if err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
@@ -218,6 +231,7 @@ func (d *dbo) runTransactionWithOpts(ctx context.Context, fn func(tx DBTX) error
 // If the query fails or no rows are returned, it returns an error.
 func SelectRow[T any](ctx context.Context, dbtx DBTX, query string, args ...any) (T, error) {
 	var result T
+
 	row, err := dbtx.Query(ctx, query, args...)
 	if err != nil {
 		return result, fmt.Errorf("failed to execute query: %w", err)
@@ -256,6 +270,7 @@ func ExecQuery(ctx context.Context, dbtx DBTX, query string, args ...any) error 
 	if err != nil {
 		return fmt.Errorf("failed to execute query: %w", err)
 	}
+
 	return nil
 }
 

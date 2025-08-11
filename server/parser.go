@@ -49,9 +49,11 @@ func ParseRequest(r *http.Request, req any) error {
 			if err != nil {
 				return fmt.Errorf("error parsing header field %s: %w", tagName, err)
 			}
+
 			if value != nil {
 				val.Field(i).Set(reflect.ValueOf(value))
 			}
+
 			continue
 		}
 
@@ -61,33 +63,41 @@ func ParseRequest(r *http.Request, req any) error {
 			if err != nil {
 				return fmt.Errorf("error parsing path field %s: %w", tagName, err)
 			}
+
 			if value != nil {
 				val.Field(i).Set(reflect.ValueOf(value))
 			}
+
 			continue
 		}
 
 		tagName = field.Tag.Get("query")
 		if tagName != "" {
 			queryValues := r.URL.Query()[tagName]
+
 			value, err := parseFields(field, queryValues)
 			if err != nil {
 				return fmt.Errorf("error parsing query field %s: %w", tagName, err)
 			}
+
 			if value != nil {
 				val.Field(i).Set(reflect.ValueOf(value))
 			}
+
 			continue
 		}
 
 		tagName = field.Tag.Get("body")
 		if tagName == "json" {
 			body := reflect.New(field.Type).Interface()
+
 			err := json.NewDecoder(r.Body).Decode(body)
 			if err != nil {
 				return fmt.Errorf("error parsing body field %s: %w", tagName, err)
 			}
+
 			val.Field(i).Set(reflect.ValueOf(body).Elem())
+
 			continue
 		}
 

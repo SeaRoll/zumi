@@ -37,7 +37,7 @@ var typeParsers = map[string]typeParser{
 }
 
 // parseField is a helper function that parses the field value which is a string,
-// and returns the value as the correct type
+// and returns the value as the correct type.
 func parseField(field reflect.StructField, value string) (any, error) {
 	// check default value
 	if value == "" {
@@ -51,6 +51,7 @@ func parseField(field reflect.StructField, value string) (any, error) {
 
 	// 3. Determine the type and if it's a pointer.
 	fieldType := field.Type
+
 	isPointer := fieldType.Kind() == reflect.Ptr
 	if isPointer {
 		// If it's a pointer, get the underlying type (e.g., *int -> int).
@@ -76,6 +77,7 @@ func parseField(field reflect.StructField, value string) (any, error) {
 		val := reflect.ValueOf(parsedValue)
 		ptr := reflect.New(val.Type())
 		ptr.Elem().Set(val)
+
 		return ptr.Interface(), nil
 	}
 
@@ -97,10 +99,12 @@ func parseFields(field reflect.StructField, values []string) (any, error) {
 			if err != nil {
 				return nil, err
 			}
+
 			if value != nil {
 				slice = reflect.Append(slice, reflect.ValueOf(value).Convert(sliceType))
 			}
 		}
+
 		return slice.Interface(), nil
 	}
 

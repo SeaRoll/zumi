@@ -27,7 +27,7 @@ type NewPubsubClientParams struct {
 	MaxAge        time.Duration // Maximum age of messages in the stream
 }
 
-// Initializes a new Pubsub Client
+// Initializes a new Pubsub Client.
 func NewPubsubClient(params NewPubsubClientParams) (Queue, error) {
 	nc, err := nats.Connect(
 		params.ConnectionUrl,
@@ -76,7 +76,7 @@ func NewPubsubClient(params NewPubsubClientParams) (Queue, error) {
 // Publishes a message to the specified topic.
 // The function accepts a variadic parameter for timeout duration, defaulting to 5 seconds if not provided.
 func (p *pubsubClient) Publish(topic string, message []byte, timeout ...time.Duration) error {
-	return failsafe.Run(func() error {
+	err := failsafe.Run(func() error {
 		defaultTimeout := 5 * time.Second
 		if len(timeout) > 0 {
 			defaultTimeout = timeout[0]
@@ -89,8 +89,14 @@ func (p *pubsubClient) Publish(topic string, message []byte, timeout ...time.Dur
 		if err != nil {
 			return fmt.Errorf("failed to publish message to topic %s: %w", topic, err)
 		}
+
 		return nil
 	}, p.retryPolicy)
+	if err != nil {
+		return fmt.Errorf("failed to publish message to topic %s: %w", topic, err)
+	}
+
+	return nil
 }
 
 type Event struct {
@@ -106,7 +112,7 @@ type ackFunc func() error
 // representing the indices of the events that were successfully processed.
 type CallbackFunc func(ctx context.Context, events []Event) []int
 
-// Configuration for a consumer
+// Configuration for a consumer.
 type ConsumerConfig struct {
 	ConsumerName    string         // The name for the consumer
 	Subject         string         // The subject to listen on
@@ -156,11 +162,14 @@ func (p *pubsubClient) Consume(config ConsumerConfig) error {
 
 		events := []Event{}
 		acks := []ackFunc{}
+
 		for msg := range msgs.Messages() {
-			if err := msg.InProgress(); err != nil {
+			err := msg.InProgress()
+			if err != nil {
 				slog.Error("Error setting message in progress", "error", err)
 				break
 			}
+
 			events = append(events, Event{
 				Index:   len(events),
 				Payload: msg.Data(),
@@ -186,9 +195,11 @@ func (p *pubsubClient) ackSuccessfulMsgs(res []int, config ConsumerConfig, acks 
 		if idx < 0 || idx >= len(acks) {
 			continue
 		}
-		if err := failsafe.Run(func() error {
+
+		err := failsafe.Run(func() error {
 			return acks[idx]()
-		}, p.retryPolicy); err != nil {
+		}, p.retryPolicy)
+		if err != nil {
 			slog.Error(
 				"Failed to acknowledge message",
 				"error",
@@ -210,16 +221,20 @@ func (p *pubsubClient) fetchMessages(
 	fetchWait time.Duration,
 ) (jetstream.MessageBatch, error) {
 	var msgs jetstream.MessageBatch
-	if err := failsafe.Run(func() error {
+
+	err := failsafe.Run(func() error {
 		var err error
+
 		msgs, err = cons.Fetch(config.FetchLimit, jetstream.FetchMaxWait(fetchWait))
+
 		return fmt.Errorf(
 			"failed to fetch messages for consumer %s on subject %s: %w",
 			config.ConsumerName,
 			config.Subject,
 			err,
 		)
-	}, p.retryPolicy); err != nil {
+	}, p.retryPolicy)
+	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to fetch messages for consumer %s on subject %s: %w",
 			config.ConsumerName,
@@ -227,11 +242,13 @@ func (p *pubsubClient) fetchMessages(
 			err,
 		)
 	}
+
 	return msgs, nil
 }
 
 func (p *pubsubClient) performCallback(callbackFn CallbackFunc, events []Event, callbackTimeout time.Duration) []int {
 	ctx, cancel := context.WithTimeout(context.Background(), callbackTimeout)
 	defer cancel()
+
 	return callbackFn(ctx, events)
 }

@@ -14,7 +14,7 @@ import (
 	"github.com/SeaRoll/zumi/server"
 )
 
-//go:generate go run ../../server/gen "-title=Zumi Message API" "-version=1.0.0" "-description=Zumi API for events with pubsub" "-servers=http://localhost:8080"
+//go:generate go run ../../server/gen "-title=Zumi Message API" "-version=1.0.0" "-description=Zumi API for events with pubsub\n\nWe can also add spacing here" "-servers=http://localhost:8080"
 
 const exampleChannel = "example_channel"
 
@@ -40,10 +40,11 @@ func main() {
 
 	// subscribe to a channel
 	go func() {
-		if err := cache.Subscribe(exampleChannel, func(msg string) error {
+		err := cache.Subscribe(exampleChannel, func(msg string) error {
 			fmt.Printf("Received message: %s\n", msg)
 			return nil
-		}); err != nil {
+		})
+		if err != nil {
 			panic(fmt.Errorf("failed to subscribe to channel: %w", err))
 		}
 	}()
@@ -60,7 +61,9 @@ func main() {
 	server.AddHandler("GET /docs", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write([]byte(embedIndexHTML)); err != nil {
+
+		_, err := w.Write([]byte(embedIndexHTML))
+		if err != nil {
 			http.Error(w, fmt.Sprintf("failed to write index.html: %v", err), http.StatusInternalServerError)
 			return
 		}
@@ -70,7 +73,9 @@ func main() {
 	server.AddHandler("GET /openapi.yaml", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/x-yaml")
 		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write([]byte(embedOpenAPI)); err != nil {
+
+		_, err := w.Write([]byte(embedOpenAPI))
+		if err != nil {
 			http.Error(w, fmt.Sprintf("failed to write openapi.yaml: %v", err), http.StatusInternalServerError)
 			return
 		}
@@ -81,26 +86,34 @@ func main() {
 		type publishResponse struct {
 			Status string `json:"status"`
 		}
+
 		var req struct {
 			Ctx     context.Context `ctx:"context"`
 			Message struct {
 				Content string `json:"content" validate:"required"` // ensure content is provided
 			} `body:"json"`
 		}
-		if err := server.ParseRequest(r, &req); err != nil {
+
+		err := server.ParseRequest(r, &req)
+		if err != nil {
 			server.WriteError(w, http.StatusBadRequest, fmt.Sprintf("invalid request: %v", err))
 			return
 		}
-		if err := cache.Publish(req.Ctx, exampleChannel, req.Message.Content); err != nil {
+
+		err = cache.Publish(req.Ctx, exampleChannel, req.Message.Content)
+		if err != nil {
 			server.WriteError(w, http.StatusInternalServerError, fmt.Sprintf("failed to publish message: %v", err))
 			return
 		}
+
 		server.WriteJSON(w, http.StatusOK, publishResponse{Status: "message published"})
 	})
 
 	// start the server
 	addr := ":8080"
-	if err := server.StartServer(ctx, addr); err != nil {
+
+	err = server.StartServer(ctx, addr)
+	if err != nil {
 		panic(fmt.Errorf("failed to start server: %w", err))
 	}
 }
