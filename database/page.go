@@ -30,6 +30,21 @@ type Page[T any] struct {
 	IsEmpty          bool        `json:"empty"`
 }
 
+func MapContent[T any, R any](page Page[T], new []R) Page[R] {
+	return Page[R]{
+		Content:          new,
+		Pageable:         page.Pageable,
+		TotalElements:    page.TotalElements,
+		TotalPages:       page.TotalPages,
+		Number:           page.Number,
+		Size:             page.Size,
+		NumberOfElements: page.NumberOfElements,
+		IsLast:           page.IsLast,
+		IsFirst:          page.IsFirst,
+		IsEmpty:          page.IsEmpty,
+	}
+}
+
 // SelectRowsPageable executes a query and returns a paginated result set.
 // It uses the provided dbtx to execute the query and collects the results into a Page[T].
 // The PageRequest parameter specifies the pagination details such as page number and size.
@@ -110,7 +125,7 @@ func SelectRowsPageable[T any](ctx context.Context, dbtx DBTX, pageRequest PageR
 
 	page.TotalElements = totalElements
 	page.TotalPages = int((totalElements + int64(pageRequest.Size) - 1) / int64(pageRequest.Size))
-	page.IsLast = page.Number >= page.TotalPages
+	page.IsLast = page.Number >= page.TotalPages-1
 	page.IsFirst = page.Number == 0
 
 	return page, nil

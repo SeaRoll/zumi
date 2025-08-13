@@ -16,6 +16,8 @@ import (
 	"github.com/pressly/goose/v3"
 )
 
+var ErrNoRows = pgx.ErrNoRows
+
 //go:generate go run github.com/SeaRoll/interfacer/cmd -struct=dbo -name=Database -file=interface.go
 
 type dbo struct {
