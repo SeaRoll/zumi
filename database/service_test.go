@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-//go:embed test_migrations/*.sql
+//go:embed migrations/*.sql
 var testMigrations embed.FS
 
 type Book struct {
