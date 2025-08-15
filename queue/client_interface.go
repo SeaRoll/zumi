@@ -3,7 +3,7 @@ package queue
 
 import "time"
 
-// Queue defines the public interface for pubsubClient.
+// Queue defines the public interface for queue.
 type Queue interface {
 	// Runs a consumer by given configuration and callback function
 	// OBS: This function is blocking, so make sure to run it in a goroutine if

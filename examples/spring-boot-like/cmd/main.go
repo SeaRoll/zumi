@@ -30,10 +30,10 @@ func main() {
 	}
 	defer db.Disconnect()
 
-	// Connect to pubsub
-	mq, err := queue.NewPubsubClient(cfg.Pubsub)
+	// Connect to Queue
+	mq, err := queue.NewQueue(cfg.Queue)
 	if err != nil {
-		slog.Error("Failed to connect to pubsub", "error", err)
+		slog.Error("Failed to connect to queue", "error", err)
 		return
 	}
 

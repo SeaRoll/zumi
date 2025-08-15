@@ -17,8 +17,8 @@ type DatabaseConfig struct {
 	Name     string `yaml:"name"`
 }
 
-type PubsubConfig struct {
-	Enabled       bool   `yaml:"enabled"` // Whether Pubsub is enabled
+type QueueConfig struct {
+	Enabled       bool   `yaml:"enabled"` // Whether Queue is enabled
 	ConnectionUrl string `yaml:"url"`     // NATS server connection URL
 	Name          string `yaml:"name"`    // Name of the JetStream stream
 	TopicPrefix   string `yaml:"prefix"`  // Prefix for topics in the stream
@@ -42,7 +42,7 @@ type CacheConfig struct {
 type BaseConfig struct {
 	Server   ServerConfig   `yaml:"server"`
 	Database DatabaseConfig `yaml:"database"`
-	Pubsub   PubsubConfig   `yaml:"pubsub"`
+	Queue    QueueConfig    `yaml:"queue"`
 	Cache    CacheConfig    `yaml:"cache"`
 }
 

@@ -13,18 +13,18 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 )
 
-//go:generate go run github.com/SeaRoll/interfacer/cmd -struct=pubsubClient -name=Queue -file=client_interface.go
+//go:generate go run github.com/SeaRoll/interfacer/cmd -struct=queue -name=Queue -file=client_interface.go
 
-type pubsubClient struct {
+type queue struct {
 	js          jetstream.JetStream
 	stream      jetstream.Stream
 	retryPolicy retrypolicy.RetryPolicy[any]
 }
 
-// Initializes a new Pubsub Client.
-func NewPubsubClient(params config.PubsubConfig) (Queue, error) {
+// Initializes a new Queue.
+func NewQueue(params config.QueueConfig) (Queue, error) {
 	if !params.Enabled {
-		return nil, fmt.Errorf("pubsub is not enabled in the configuration")
+		return nil, fmt.Errorf("queue is not enabled in the configuration")
 	}
 
 	// parse maxAge duration
@@ -70,7 +70,7 @@ func NewPubsubClient(params config.PubsubConfig) (Queue, error) {
 		WithMaxRetries(5).
 		Build()
 
-	return &pubsubClient{
+	return &queue{
 		js:          js,
 		stream:      stream,
 		retryPolicy: retryPolicy,
@@ -79,7 +79,7 @@ func NewPubsubClient(params config.PubsubConfig) (Queue, error) {
 
 // Publishes a message to the specified topic.
 // The function accepts a variadic parameter for timeout duration, defaulting to 5 seconds if not provided.
-func (p *pubsubClient) Publish(topic string, message []byte, timeout ...time.Duration) error {
+func (p *queue) Publish(topic string, message []byte, timeout ...time.Duration) error {
 	err := failsafe.Run(func() error {
 		defaultTimeout := 5 * time.Second
 		if len(timeout) > 0 {
@@ -128,7 +128,7 @@ type ConsumerConfig struct {
 	Wait            *time.Duration // Optional wait time for the consumer before fetching messages, defaults to 1 second
 }
 
-func (p *pubsubClient) getFetchWaitAndCallbackTimeout(config ConsumerConfig) (time.Duration, time.Duration) {
+func (p *queue) getFetchWaitAndCallbackTimeout(config ConsumerConfig) (time.Duration, time.Duration) {
 	fetchWait := time.Second // default
 	if config.Wait != nil {
 		fetchWait = *config.Wait
@@ -146,7 +146,7 @@ func (p *pubsubClient) getFetchWaitAndCallbackTimeout(config ConsumerConfig) (ti
 // OBS: This function is blocking, so make sure to run it in a goroutine if
 // you want to run other code in parallel.
 // Returns an error if the consumer could not be created or updated.
-func (p *pubsubClient) Consume(config ConsumerConfig) error {
+func (p *queue) Consume(config ConsumerConfig) error {
 	cons, err := p.stream.CreateOrUpdateConsumer(
 		context.Background(),
 		jetstream.ConsumerConfig{
@@ -195,7 +195,7 @@ func (p *pubsubClient) Consume(config ConsumerConfig) error {
 	}
 }
 
-func (p *pubsubClient) ackSuccessfulMsgs(res []int, config ConsumerConfig, acks []ackFunc) {
+func (p *queue) ackSuccessfulMsgs(res []int, config ConsumerConfig, acks []ackFunc) {
 	if len(res) == 0 {
 		return
 	}
@@ -224,7 +224,7 @@ func (p *pubsubClient) ackSuccessfulMsgs(res []int, config ConsumerConfig, acks 
 	}
 }
 
-func (p *pubsubClient) fetchMessages(
+func (p *queue) fetchMessages(
 	cons jetstream.Consumer,
 	config ConsumerConfig,
 	fetchWait time.Duration,
@@ -254,7 +254,7 @@ func (p *pubsubClient) fetchMessages(
 	return msgs, nil
 }
 
-func (p *pubsubClient) performCallback(callbackFn CallbackFunc, events []Event, callbackTimeout time.Duration) []int {
+func (p *queue) performCallback(callbackFn CallbackFunc, events []Event, callbackTimeout time.Duration) []int {
 	ctx, cancel := context.WithTimeout(context.Background(), callbackTimeout)
 	defer cancel()
 

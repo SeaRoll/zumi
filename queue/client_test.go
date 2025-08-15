@@ -10,7 +10,7 @@ import (
 )
 
 const configYaml = `
-pubsub:
+queue:
   enabled: true
   url: nats://localhost:4222
   name: default
@@ -28,9 +28,9 @@ func setupQueue(ctx context.Context, t *testing.T) Queue {
 
 	t.Logf("Config: %+v", cfg)
 
-	queue, err := NewPubsubClient(cfg.GetBaseConfig().Pubsub)
+	queue, err := NewQueue(cfg.GetBaseConfig().Queue)
 	if err != nil {
-		t.Fatalf("Failed to create pubsub client: %v", err)
+		t.Fatalf("Failed to create queue client: %v", err)
 	}
 
 	return queue
