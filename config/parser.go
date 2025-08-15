@@ -12,10 +12,6 @@ import (
 // Regex to find all occurrences of ${VAR:fallback}.
 var re = regexp.MustCompile(`\$\{(\w+):([^}]+)\}`)
 
-type Config[T ZumiConfig] struct {
-	Content T
-}
-
 // FromYAML creates a Config instance from a YAML string.
 func FromYAML[T ZumiConfig](data string) (T, error) {
 	content, err := LoadConfig[T](data)
