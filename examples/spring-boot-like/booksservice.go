@@ -2,9 +2,12 @@ package springbootlike
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log/slog"
 
 	"github.com/SeaRoll/zumi/database"
+	"github.com/SeaRoll/zumi/queue"
 	"github.com/google/uuid"
 )
 
@@ -16,15 +19,35 @@ type Service interface {
 }
 
 type service struct {
+	mq         queue.Queue
 	db         database.Database
 	repository Repository
 }
 
-func NewService(db database.Database, repository Repository) Service {
-	return &service{
+func NewService(mq queue.Queue, db database.Database, repository Repository) Service {
+	s := &service{
+		mq:         mq,
 		db:         db,
 		repository: repository,
 	}
+
+	go s.mq.Consume(queue.ConsumerConfig{
+		ConsumerName: "api",
+		Topic:        "events.books",
+		FetchLimit:   1,
+		Callback: func(ctx context.Context, events []queue.Event) []int {
+			processed := []int{}
+
+			slog.Info("Received events", "count", len(events))
+			for _, event := range events {
+				slog.Info("Processing event", "event", string(event.Payload))
+				processed = append(processed, event.Index)
+			}
+			return processed
+		},
+	})
+
+	return s
 }
 
 // CreateBook implements Service.
@@ -47,6 +70,16 @@ func (s *service) CreateBook(ctx context.Context, newBook NewBookDTO, tx ...data
 	}, tx...)
 	if err != nil {
 		return BookDTO{}, err
+	}
+
+	b, err := json.Marshal(book)
+	if err != nil {
+		return BookDTO{}, fmt.Errorf("failed to marshal book: %w", err)
+	}
+
+	err = s.mq.Publish("events.books", b)
+	if err != nil {
+		return BookDTO{}, fmt.Errorf("failed to publish book event: %w", err)
 	}
 
 	return BookDTO(book), nil

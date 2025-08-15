@@ -8,3 +8,10 @@ database:
   user: ${DB_USER:postgres}
   password: ${DB_PASSWORD:mysecretpassword}
   name: ${DB_NAME:foodie}
+
+pubsub:
+  enabled: true
+  url: nats://localhost:4222
+  name: default
+  prefix: events
+  maxAge: 24h

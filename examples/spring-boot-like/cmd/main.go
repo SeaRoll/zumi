@@ -8,6 +8,7 @@ import (
 
 	springbootlike "github.com/SeaRoll/zumi/examples/spring-boot-like"
 	"github.com/SeaRoll/zumi/examples/spring-boot-like/docs"
+	"github.com/SeaRoll/zumi/queue"
 	"github.com/SeaRoll/zumi/server"
 )
 
@@ -29,9 +30,16 @@ func main() {
 	}
 	defer db.Disconnect()
 
+	// Connect to pubsub
+	mq, err := queue.NewPubsubClient(cfg.Pubsub)
+	if err != nil {
+		slog.Error("Failed to connect to pubsub", "error", err)
+		return
+	}
+
 	// Repository and service initialization
 	repository := springbootlike.NewRepository()
-	service := springbootlike.NewService(db, repository)
+	service := springbootlike.NewService(mq, db, repository)
 
 	// API initialization
 	api := springbootlike.NewAPI(service)

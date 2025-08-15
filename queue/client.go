@@ -100,6 +100,8 @@ func (p *pubsubClient) Publish(topic string, message []byte, timeout ...time.Dur
 		return fmt.Errorf("failed to publish message to topic %s: %w", topic, err)
 	}
 
+	slog.Info("Message published successfully", "topic", topic, "message_length", len(message))
+
 	return nil
 }
 
@@ -119,7 +121,7 @@ type CallbackFunc func(ctx context.Context, events []Event) []int
 // Configuration for a consumer.
 type ConsumerConfig struct {
 	ConsumerName    string         // The name for the consumer
-	Subject         string         // The subject to listen on
+	Topic           string         // The topic to listen on, e.g: events.books
 	FetchLimit      int            // The maximum number of messages to fetch per second
 	Callback        CallbackFunc   // The callback function to process messages
 	CallbackTimeout *time.Duration // Optional timeout for the callback function, defaults to 1 minute
@@ -150,7 +152,7 @@ func (p *pubsubClient) Consume(config ConsumerConfig) error {
 		jetstream.ConsumerConfig{
 			Name:          config.ConsumerName,
 			Durable:       config.ConsumerName,
-			FilterSubject: config.Subject,
+			FilterSubject: config.Topic,
 		})
 	if err != nil {
 		return fmt.Errorf("failed to create or update consumer: %w", err)
@@ -158,9 +160,12 @@ func (p *pubsubClient) Consume(config ConsumerConfig) error {
 
 	fetchWait, callbackTimeout := p.getFetchWaitAndCallbackTimeout(config)
 
+	slog.Info("Listening on topic", "topic", config.Topic)
+
 	for {
 		msgs, err := p.fetchMessages(cons, config, fetchWait)
 		if err != nil {
+			slog.Error("Failed to fetch messages", "error", err, "consumer", config.ConsumerName, "subject", config.Topic)
 			continue
 		}
 
@@ -213,7 +218,7 @@ func (p *pubsubClient) ackSuccessfulMsgs(res []int, config ConsumerConfig, acks 
 				"consumer",
 				config.ConsumerName,
 				"subject",
-				config.Subject,
+				config.Topic,
 			)
 		}
 	}
@@ -231,20 +236,19 @@ func (p *pubsubClient) fetchMessages(
 
 		msgs, err = cons.Fetch(config.FetchLimit, jetstream.FetchMaxWait(fetchWait))
 
-		return fmt.Errorf(
-			"failed to fetch messages for consumer %s on subject %s: %w",
-			config.ConsumerName,
-			config.Subject,
-			err,
-		)
+		if err != nil {
+			return fmt.Errorf(
+				"failed to fetch messages for consumer %s on subject %s: %w",
+				config.ConsumerName,
+				config.Topic,
+				err,
+			)
+		}
+
+		return nil
 	}, p.retryPolicy)
 	if err != nil {
-		return nil, fmt.Errorf(
-			"failed to fetch messages for consumer %s on subject %s: %w",
-			config.ConsumerName,
-			config.Subject,
-			err,
-		)
+		return nil, fmt.Errorf("failed after retries: %w", err)
 	}
 
 	return msgs, nil
