@@ -31,21 +31,26 @@ func NewService(mq queue.Queue, db database.Database, repository Repository) Ser
 		repository: repository,
 	}
 
-	go s.mq.Consume(queue.ConsumerConfig{
-		ConsumerName: "api",
-		Topic:        "events.books",
-		FetchLimit:   1,
-		Callback: func(ctx context.Context, events []queue.Event) []int {
-			processed := []int{}
+	go func() {
+		err := s.mq.Consume(queue.ConsumerConfig{
+			ConsumerName: "api",
+			Topic:        "events.books",
+			FetchLimit:   1,
+			Callback: func(ctx context.Context, events []queue.Event) []int {
+				processed := []int{}
 
-			slog.Info("Received events", "count", len(events))
-			for _, event := range events {
-				slog.Info("Processing event", "event", string(event.Payload))
-				processed = append(processed, event.Index)
-			}
-			return processed
-		},
-	})
+				slog.Info("Received events", "count", len(events))
+				for _, event := range events {
+					slog.Info("Processing event", "event", string(event.Payload))
+					processed = append(processed, event.Index)
+				}
+				return processed
+			},
+		})
+		if err != nil {
+			slog.Error("Failed to consume messages", "error", err)
+		}
+	}()
 
 	return s
 }
@@ -72,7 +77,7 @@ func (s *service) CreateBook(ctx context.Context, newBook NewBookDTO, tx ...data
 		return BookDTO{}, err
 	}
 
-	b, err := json.Marshal(book)
+	b, err := json.Marshal(BookDTO(book))
 	if err != nil {
 		return BookDTO{}, fmt.Errorf("failed to marshal book: %w", err)
 	}

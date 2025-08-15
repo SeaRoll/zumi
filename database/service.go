@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -37,7 +38,7 @@ func NewDatabase(
 	migrations fs.FS,
 ) (Database, error) {
 	if !cfg.Enabled {
-		return nil, fmt.Errorf("database is not enabled in the configuration")
+		return nil, errors.New("database is not enabled in the configuration")
 	}
 
 	connectionUrl := fmt.Sprintf(

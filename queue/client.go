@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -24,7 +25,7 @@ type queue struct {
 // Initializes a new Queue.
 func NewQueue(params config.QueueConfig) (Queue, error) {
 	if !params.Enabled {
-		return nil, fmt.Errorf("queue is not enabled in the configuration")
+		return nil, errors.New("queue is not enabled in the configuration")
 	}
 
 	// parse maxAge duration
@@ -235,7 +236,6 @@ func (p *queue) fetchMessages(
 		var err error
 
 		msgs, err = cons.Fetch(config.FetchLimit, jetstream.FetchMaxWait(fetchWait))
-
 		if err != nil {
 			return fmt.Errorf(
 				"failed to fetch messages for consumer %s on subject %s: %w",

@@ -28,7 +28,7 @@ type cacheClient struct {
 
 func NewCache(config config.CacheConfig) (Cache, error) {
 	if !config.Enabled {
-		return nil, fmt.Errorf("cache is not enabled in the configuration")
+		return nil, errors.New("cache is not enabled in the configuration")
 	}
 
 	cc := &cacheClient{
