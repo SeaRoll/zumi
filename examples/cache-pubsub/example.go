@@ -11,6 +11,7 @@ import (
 	"os/signal"
 
 	"github.com/SeaRoll/zumi/cache"
+	"github.com/SeaRoll/zumi/config"
 	"github.com/SeaRoll/zumi/server"
 )
 
@@ -25,15 +26,25 @@ var (
 	embedIndexHTML string
 )
 
+const configYaml = `
+cache:
+  enabled: true
+  host: localhost
+  port: "6379"
+  password: ""
+`
+
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
+	cfg, err := config.FromYAML[config.BaseConfig](configYaml)
+	if err != nil {
+		panic(fmt.Errorf("failed to load config: %w", err))
+	}
+
 	// setup cache
-	cache, err := cache.NewCache(cache.CacheConfig{
-		Host: "localhost",
-		Port: "6379",
-	})
+	cache, err := cache.NewCache(cfg.GetBaseConfig().Cache)
 	if err != nil {
 		panic(fmt.Errorf("failed to create cache: %w", err))
 	}

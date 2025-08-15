@@ -5,19 +5,29 @@ import (
 	"testing"
 	"time"
 
+	"github.com/SeaRoll/zumi/config"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
+const configYaml = `
+cache:
+  enabled: true
+  host: localhost
+  port: "6379"
+  password: ""
+`
+
 func setupCache(t *testing.T) (context.Context, Cache) {
 	t.Helper()
 	ctx := context.Background()
-	c, err := NewCache(CacheConfig{
-		Host:           "localhost",
-		Port:           "6379",
-		Password:       "",
-		SentinelConfig: nil,
-	})
+
+	cfg, err := config.FromYAML[config.BaseConfig](configYaml)
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	c, err := NewCache(cfg.GetBaseConfig().Cache)
 	if err != nil {
 		t.Fatalf("Failed to create cache: %v", err)
 	}

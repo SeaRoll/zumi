@@ -6,13 +6,14 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/SeaRoll/zumi/config"
 	"github.com/failsafe-go/failsafe-go"
 	"github.com/failsafe-go/failsafe-go/retrypolicy"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 )
 
-//go:generate go run github.com/SeaRoll/interfacer/cmd -struct=pubsubClient -name=Queue
+//go:generate go run github.com/SeaRoll/interfacer/cmd -struct=pubsubClient -name=Queue -file=client_interface.go
 
 type pubsubClient struct {
 	js          jetstream.JetStream
@@ -20,15 +21,18 @@ type pubsubClient struct {
 	retryPolicy retrypolicy.RetryPolicy[any]
 }
 
-type NewPubsubClientParams struct {
-	ConnectionUrl string        // NATS server connection URL
-	Name          string        // Name of the JetStream stream
-	TopicPrefix   string        // Prefix for topics in the stream
-	MaxAge        time.Duration // Maximum age of messages in the stream
-}
-
 // Initializes a new Pubsub Client.
-func NewPubsubClient(params NewPubsubClientParams) (Queue, error) {
+func NewPubsubClient(params config.PubsubConfig) (Queue, error) {
+	if !params.Enabled {
+		return nil, fmt.Errorf("pubsub is not enabled in the configuration")
+	}
+
+	// parse maxAge duration
+	maxAge, err := time.ParseDuration(params.MaxAge)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse maxAge duration: %w", err)
+	}
+
 	nc, err := nats.Connect(
 		params.ConnectionUrl,
 		nats.DisconnectErrHandler(func(_ *nats.Conn, err error) {
@@ -55,7 +59,7 @@ func NewPubsubClient(params NewPubsubClientParams) (Queue, error) {
 		Name:      params.Name,
 		Subjects:  []string{params.TopicPrefix + ".>"},
 		Retention: jetstream.LimitsPolicy,
-		MaxAge:    params.MaxAge,
+		MaxAge:    maxAge,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create or update stream: %w", err)

@@ -8,16 +8,11 @@ import (
 )
 
 type AppConfig struct {
-	Server struct {
-		Port int `yaml:"port"`
-	} `yaml:"server"`
-	Database struct {
-		Host string `yaml:"host"`
-		Port int    `yaml:"port"`
-		Name string `yaml:"name"`
-		User string `yaml:"user"`
-		Pass string `yaml:"pass"`
-	} `yaml:"database"`
+	config.BaseConfig `yaml:",inline"`
+}
+
+func (c AppConfig) GetBaseConfig() config.BaseConfig {
+	return c.BaseConfig
 }
 
 //go:embed config.yaml
@@ -27,9 +22,9 @@ func LoadConfig() (AppConfig, error) {
 	// Parse the YAML configuration
 	cfg, err := config.FromYAML[AppConfig](configData)
 	if err != nil {
-		return cfg.Content, fmt.Errorf("failed to load config: %w", err)
+		return cfg, fmt.Errorf("failed to load config: %w", err)
 	}
 
 	// Return the parsed configuration
-	return cfg.Content, nil
+	return cfg, nil
 }

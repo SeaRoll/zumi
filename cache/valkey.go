@@ -9,35 +9,28 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/SeaRoll/zumi/config"
 	"github.com/valkey-io/valkey-go"
 	"github.com/valkey-io/valkey-go/valkeycompat"
 )
 
-//go:generate go run github.com/SeaRoll/interfacer/cmd -struct=cacheClient -name=Cache
+//go:generate go run github.com/SeaRoll/interfacer/cmd -struct=cacheClient -name=Cache -file=valkey_interface.go
 
 var ErrNil = valkey.Nil // Exported error for nil values
 const DefaultTimeout = 15 * time.Minute
 
 type cacheClient struct {
-	config     CacheConfig
+	config     config.CacheConfig
 	valcli     valkey.Client
 	client     valkeycompat.Cmdable
 	isTeardown atomic.Bool
 }
 
-type SentinelOption struct {
-	MasterSet string // MasterSet is the name of the master set for sentinel mode
-	Password  string // Password for the sentinel, if not provided, it will not use sentinel
-}
+func NewCache(config config.CacheConfig) (Cache, error) {
+	if !config.Enabled {
+		return nil, fmt.Errorf("cache is not enabled in the configuration")
+	}
 
-type CacheConfig struct {
-	Host           string          // Host of the cache server
-	Port           string          // Port of the cache server
-	Password       string          // Password for the cache server
-	SentinelConfig *SentinelOption // SentinelConfig for sentinel mode, if nil, it will not use sentinel
-}
-
-func NewCache(config CacheConfig) (Cache, error) {
 	cc := &cacheClient{
 		config:     config,
 		isTeardown: atomic.Bool{},
@@ -54,7 +47,7 @@ func NewCache(config CacheConfig) (Cache, error) {
 }
 
 func (c *cacheClient) getSentinelConfig() valkey.SentinelOption {
-	if c.config.SentinelConfig == nil {
+	if !c.config.SentinelConfig.Enabled {
 		return valkey.SentinelOption{}
 	}
 

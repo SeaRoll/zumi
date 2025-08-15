@@ -9,16 +9,14 @@ import (
 )
 
 type testConfig struct {
-	Server struct {
-		Port int `yaml:"port"`
-	} `yaml:"server"`
-	Database struct {
-		Host string `yaml:"host"`
-		Port int    `yaml:"port"`
-	} `yaml:"database"`
-	NullableStruct *struct {
+	config.BaseConfig `yaml:",inline"`
+	NullableStruct    *struct {
 		Field string `yaml:"field"`
 	} `yaml:"nullable,omitempty"`
+}
+
+func (tc testConfig) GetBaseConfig() config.BaseConfig {
+	return tc.BaseConfig
 }
 
 func TestParseWithNoEnv(t *testing.T) {
@@ -32,10 +30,10 @@ database:
 
 	cfg, err := config.FromYAML[testConfig](yamlContent)
 	assert.Nil(t, err)
-	assert.Equal(t, 8080, cfg.Content.Server.Port)
-	assert.Equal(t, "localhost", cfg.Content.Database.Host)
-	assert.Equal(t, 5432, cfg.Content.Database.Port)
-	assert.Nil(t, cfg.Content.NullableStruct)
+	assert.Equal(t, 8080, cfg.Server.Port)
+	assert.Equal(t, "localhost", cfg.Database.Host)
+	assert.Equal(t, 5432, cfg.Database.Port)
+	assert.Nil(t, cfg.NullableStruct)
 
 	t.Logf("Parsed config: %+v", cfg)
 }
@@ -53,9 +51,9 @@ database:
 
 	cfg, err := config.FromYAML[testConfig](yamlContent)
 	assert.Nil(t, err)
-	assert.Equal(t, 8080, cfg.Content.Server.Port)
-	assert.Equal(t, "db.example.com", cfg.Content.Database.Host)
-	assert.Equal(t, 5432, cfg.Content.Database.Port)
+	assert.Equal(t, 8080, cfg.Server.Port)
+	assert.Equal(t, "db.example.com", cfg.Database.Host)
+	assert.Equal(t, 5432, cfg.Database.Port)
 
 	t.Logf("Parsed config: %+v", cfg)
 	os.Unsetenv("DATABASE_HOST")
@@ -76,7 +74,7 @@ nullable:
 
 	cfg, err := config.FromYAML[testConfig](yamlContent)
 	assert.Nil(t, err)
-	assert.Equal(t, "db.example.com", cfg.Content.NullableStruct.Field)
+	assert.Equal(t, "db.example.com", cfg.NullableStruct.Field)
 
 	t.Logf("Parsed config: %+v", cfg)
 	os.Unsetenv("NULL_FIELD")

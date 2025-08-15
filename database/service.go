@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/SeaRoll/zumi/config"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -32,9 +33,22 @@ type dbo struct {
 // It returns a Database interface or an error if the connection or migration fails.
 func NewDatabase(
 	ctx context.Context,
-	connectionUrl string,
+	cfg config.DatabaseConfig,
 	migrations fs.FS,
 ) (Database, error) {
+	if !cfg.Enabled {
+		return nil, fmt.Errorf("database is not enabled in the configuration")
+	}
+
+	connectionUrl := fmt.Sprintf(
+		"postgres://%s:%s@%s:%d/%s?sslmode=disable",
+		cfg.User,
+		cfg.Password,
+		cfg.Host,
+		cfg.Port,
+		cfg.Name,
+	)
+
 	d := &dbo{
 		connectionUrl: connectionUrl,
 		migrations:    migrations,

@@ -8,7 +8,7 @@ import (
 
 // Cache defines the public interface for cacheClient.
 type Cache interface {
-	// Delete removes a key from the cache
+	// Delete removes a key from the cache.
 	Delete(ctx context.Context, key string) error
 	// Disconnect forcefully disconnects the cache client.
 	// if `noTeardown` is true, it will not set the teardown flag,
@@ -19,11 +19,11 @@ type Cache interface {
 	// This is useful for graceful shutdowns or when you want to ensure the client
 	// is no longer usable after disconnecting.
 	Disconnect(noTeardown ...bool)
-	// Exists checks if a key exists
+	// Exists checks if a key exists.
 	Exists(ctx context.Context, key string) (bool, error)
 	// Get retrieves a value from the cache by its key and unmarshals it into the provided value.
 	Get(ctx context.Context, key string, value any) error
-	// GetWithResetTTL retrieves a value from the cache by its key, unmarshals it into the provided value,
+	// GetWithResetTTL retrieves a value from the cache by its key, unmarshals it into the provided value,.
 	GetWithResetTTL(ctx context.Context, key string, value any, ttl time.Duration) error
 	// IncrBy increments the value of a key in the cache by a specified amount.
 	IncrBy(ctx context.Context, key string, increment int64) (int64, error)

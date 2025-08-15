@@ -5,6 +5,7 @@ import (
 	"embed"
 	"testing"
 
+	"github.com/SeaRoll/zumi/config"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
@@ -18,10 +19,29 @@ type Book struct {
 	Description string `db:"description" json:"description"`
 }
 
+const cfgYaml = `
+server:
+  port: 8080
+database:
+  enabled: true
+  host: localhost
+  port: 5432
+  user: postgres
+  password: mysecretpassword
+  name: foodie
+`
+
 func setupDatabase(ctx context.Context, t *testing.T) Database {
 	t.Helper()
 
-	db, err := NewDatabase(ctx, "postgres://postgres:mysecretpassword@localhost:5432/foodie?sslmode=disable", testMigrations)
+	cfg, err := config.FromYAML[config.BaseConfig](cfgYaml)
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	t.Logf("Config: %+v", cfg)
+
+	db, err := NewDatabase(ctx, cfg.GetBaseConfig().Database, testMigrations)
 	if err != nil {
 		t.Fatalf("Failed to create test database: %v", err)
 	}
