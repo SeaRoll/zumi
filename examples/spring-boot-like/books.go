@@ -1,4 +1,4 @@
-package books
+package springbootlike
 
 import "github.com/google/uuid"
 

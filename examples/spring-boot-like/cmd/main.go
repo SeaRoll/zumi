@@ -7,7 +7,6 @@ import (
 	"os/signal"
 
 	springbootlike "github.com/SeaRoll/zumi/examples/spring-boot-like"
-	"github.com/SeaRoll/zumi/examples/spring-boot-like/books"
 	"github.com/SeaRoll/zumi/examples/spring-boot-like/docs"
 	"github.com/SeaRoll/zumi/server"
 )
@@ -16,11 +15,14 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
+	cfg, err := springbootlike.LoadConfig()
+	if err != nil {
+		slog.Error("Failed to load configuration", "error", err)
+		return
+	}
+
 	// Database initialization
-	db, err := springbootlike.NewDatabase(
-		ctx,
-		"postgres://postgres:mysecretpassword@localhost:5432/foodie?sslmode=disable",
-	)
+	db, err := springbootlike.NewDatabase(ctx, cfg)
 	if err != nil {
 		slog.Error("Failed to create database", "error", err)
 		return
@@ -28,11 +30,11 @@ func main() {
 	defer db.Disconnect()
 
 	// Repository and service initialization
-	repository := books.NewRepository()
-	service := books.NewService(db, repository)
+	repository := springbootlike.NewRepository()
+	service := springbootlike.NewService(db, repository)
 
 	// API initialization
-	api := books.NewAPI(service)
+	api := springbootlike.NewAPI(service)
 	api.InitAPI()
 	docs.AddDocRoutes()
 

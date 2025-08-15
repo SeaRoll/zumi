@@ -1,4 +1,4 @@
-package books
+package springbootlike
 
 import (
 	"context"
@@ -28,6 +28,7 @@ func (r *repository) DeleteBookByID(ctx context.Context, tx database.DBTX, id uu
 	if err != nil {
 		return fmt.Errorf("failed to delete book with id %d: %w", id, err)
 	}
+
 	return nil
 }
 
@@ -37,6 +38,7 @@ func (r *repository) FindBooks(ctx context.Context, tx database.DBTX, pageReques
 	if err != nil {
 		return books, fmt.Errorf("failed to retrieve all books: %w", err)
 	}
+
 	return books, nil
 }
 
@@ -47,8 +49,10 @@ func (r *repository) FindOptionalBookByID(ctx context.Context, tx database.DBTX,
 		if errors.Is(err, database.ErrNoRows) {
 			return nil, nil // No book found with the given ID
 		}
+
 		return nil, fmt.Errorf("failed to retrieve book: %w", err)
 	}
+
 	return &book, nil
 }
 

@@ -15,6 +15,7 @@ func AddHealthRoutes() {
 		type HealthResponseDTO struct {
 			Status string `json:"status"`
 		}
+
 		var req struct {
 			Ctx context.Context `ctx:"context"`
 		}

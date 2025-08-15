@@ -32,14 +32,14 @@ func (s *server) start(ctx context.Context, addr string) error {
 	slog.Info("starting server", "address", addr)
 
 	var handler http.Handler = s.mux
-	// wrap by decorating the mux with all middlewares
-	for _, middleware := range s.middlewares {
-		handler = middleware(handler)
+	// wrap by decorating the mux with all middlewares, the first one is the outermost
+	// and the last one is the innermost, due to that, we need to reverse the order
+	for i := len(s.middlewares) - 1; i >= 0; i-- {
+		handler = s.middlewares[i](handler)
 	}
 
 	// finally add recovery and accesslog middlewares
-	handler = recovery(handler, slog.Default())
-	handler = accesslog(handler, slog.Default())
+	handler = accesslog(recovery(handler))
 
 	server := &http.Server{
 		Addr:              addr,

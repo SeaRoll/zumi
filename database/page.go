@@ -30,9 +30,9 @@ type Page[T any] struct {
 	IsEmpty          bool        `json:"empty"`
 }
 
-func MapContent[T any, R any](page Page[T], new []R) Page[R] {
+func MapContent[T any, R any](page Page[T], newContent []R) Page[R] {
 	return Page[R]{
-		Content:          new,
+		Content:          newContent,
 		Pageable:         page.Pageable,
 		TotalElements:    page.TotalElements,
 		TotalPages:       page.TotalPages,
@@ -50,7 +50,13 @@ func MapContent[T any, R any](page Page[T], new []R) Page[R] {
 // The PageRequest parameter specifies the pagination details such as page number and size.
 //
 // Note: make sure the query does not have a `;` at the end, as this function appends LIMIT and OFFSET for pagination.
-func SelectRowsPageable[T any](ctx context.Context, dbtx DBTX, pageRequest PageRequest, query string, args ...any) (Page[T], error) {
+func SelectRowsPageable[T any](
+	ctx context.Context,
+	dbtx DBTX,
+	pageRequest PageRequest,
+	query string,
+	args ...any,
+) (Page[T], error) {
 	var page Page[T]
 
 	page.Pageable = pageRequest

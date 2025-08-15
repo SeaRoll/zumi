@@ -18,7 +18,7 @@ import (
 
 var ErrNoRows = pgx.ErrNoRows
 
-//go:generate go run github.com/SeaRoll/interfacer/cmd -struct=dbo -name=Database -file=interface.go
+//go:generate go run github.com/SeaRoll/interfacer/cmd -struct=dbo -name=Database -file=service_interface.go
 
 type dbo struct {
 	connectionUrl string

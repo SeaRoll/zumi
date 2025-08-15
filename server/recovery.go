@@ -11,14 +11,14 @@ import (
 
 // accesslog is a middleware that logs request and response details,
 // including latency, method, path, query parameters, IP address, response status, and bytes sent.
-func accesslog(next http.Handler, log *slog.Logger) http.Handler {
+func accesslog(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		wr := responseRecorder{ResponseWriter: w}
 
 		next.ServeHTTP(&wr, r)
 
-		log.InfoContext(r.Context(), "accessed",
+		slog.InfoContext(r.Context(), "accessed",
 			slog.String("latency", time.Since(start).String()),
 			slog.String("method", r.Method),
 			slog.String("path", r.URL.Path),
@@ -31,7 +31,7 @@ func accesslog(next http.Handler, log *slog.Logger) http.Handler {
 
 // recovery is a middleware that recovers from panics during HTTP handler execution and logs the error details.
 // It must be the last middleware in the chain to ensure it captures all panics.
-func recovery(next http.Handler, log *slog.Logger) http.Handler {
+func recovery(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		wr := responseRecorder{ResponseWriter: w}
 
@@ -50,7 +50,7 @@ func recovery(next http.Handler, log *slog.Logger) http.Handler {
 			stack := make([]byte, 1024)
 			n := runtime.Stack(stack, true)
 
-			log.ErrorContext(r.Context(), "panic!",
+			slog.ErrorContext(r.Context(), "panic!",
 				slog.Any("error", err),
 				slog.String("stack", string(stack[:n])),
 				slog.String("method", r.Method),

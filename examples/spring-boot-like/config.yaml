@@ -1,0 +1,9 @@
+server:
+  port: ${PORT:8080}
+
+database:
+  host: ${DB_HOST:localhost}
+  port: ${DB_PORT:5432}
+  user: ${DB_USER:postgres}
+  pass: ${DB_PASSWORD:mysecretpassword}
+  name: ${DB_NAME:foodie}

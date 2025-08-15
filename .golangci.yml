@@ -84,11 +84,6 @@ linters:
     - builtin$
     - examples$
   settings:
-    musttag:
-      functions:
-      - name: (*github.com/labstack/echo/v4.context).JSON
-        tag: json
-        arg-pos: 1
     revive:
       rules:
       - name: function-result-limit
@@ -96,6 +91,25 @@ linters:
         disabled: false
         exclude: [ "" ]
         arguments: [ 2 ]
+    wrapcheck:
+      ignore-sigs:
+      - .WithTX(
+      - .WithReadTX(
+      - .Blob(
+      - .Redirect(
+      - .JSON(
+      - .NoContent(
+      - .ReturnRequestError(
+      - .ReturnError(
+      - .Errorf(
+      - errors.New(
+      - errors.Unwrap(
+      - errors.Join(
+      - .Wrap(
+      - .Wrapf(
+      - .WithMessage(
+      - .WithMessagef(
+      - .WithStack(
 issues:
   fix: true
 formatters:

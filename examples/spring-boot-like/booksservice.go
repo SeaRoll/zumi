@@ -1,4 +1,4 @@
-package books
+package springbootlike
 
 import (
 	"context"
@@ -39,18 +39,17 @@ func (s *service) CreateBook(ctx context.Context, newBook NewBookDTO, tx ...data
 			Title:       newBook.Title,
 			Description: newBook.Description,
 		})
+		if err != nil {
+			return fmt.Errorf("failed to save book: %w", err)
+		}
 
-		return err
+		return nil
 	}, tx...)
 	if err != nil {
 		return BookDTO{}, err
 	}
 
-	return BookDTO{
-		ID:          book.ID,
-		Title:       book.Title,
-		Description: book.Description,
-	}, nil
+	return BookDTO(book), nil
 }
 
 // GetBooks implements Service.
@@ -61,8 +60,11 @@ func (s *service) GetBooks(ctx context.Context, pageRequest database.PageRequest
 		var err error
 
 		books, err = s.repository.FindBooks(ctx, tx, pageRequest)
+		if err != nil {
+			return fmt.Errorf("failed to find books: %w", err)
+		}
 
-		return err
+		return nil
 	}, tx...)
 	if err != nil {
 		return database.Page[BookDTO]{}, err
@@ -70,11 +72,7 @@ func (s *service) GetBooks(ctx context.Context, pageRequest database.PageRequest
 
 	bookDTOs := make([]BookDTO, len(books.Content))
 	for i, book := range books.Content {
-		bookDTOs[i] = BookDTO{
-			ID:          book.ID,
-			Title:       book.Title,
-			Description: book.Description,
-		}
+		bookDTOs[i] = BookDTO(book)
 	}
 
 	return database.MapContent(books, bookDTOs), nil
@@ -88,8 +86,11 @@ func (s *service) GetBookByID(ctx context.Context, id uuid.UUID, tx ...database.
 		var err error
 
 		book, err = s.repository.FindOptionalBookByID(ctx, tx, id)
+		if err != nil {
+			return fmt.Errorf("failed to find book by id %s: %w", id, err)
+		}
 
-		return err
+		return nil
 	}, tx...)
 	if err != nil {
 		return BookDTO{}, err
