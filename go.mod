@@ -6,7 +6,7 @@ toolchain go1.24.5
 
 require (
 	github.com/SeaRoll/interfacer v0.1.0
-	github.com/failsafe-go/failsafe-go v0.6.9
+	github.com/failsafe-go/failsafe-go v0.7.0
 	github.com/getkin/kin-openapi v0.132.0
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/google/uuid v1.6.0
