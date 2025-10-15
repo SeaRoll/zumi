@@ -6,7 +6,7 @@ toolchain go1.24.5
 
 require (
 	github.com/SeaRoll/interfacer v0.1.0
-	github.com/failsafe-go/failsafe-go v0.6.9
+	github.com/failsafe-go/failsafe-go v0.9.1
 	github.com/getkin/kin-openapi v0.132.0
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/google/uuid v1.6.0
@@ -22,6 +22,7 @@ require (
 )
 
 require (
+	github.com/bits-and-blooms/bitset v1.24.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.9 // indirect
 	github.com/go-openapi/jsonpointer v0.21.2 // indirect
